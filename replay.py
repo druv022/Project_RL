@@ -22,6 +22,26 @@ class NaiveReplayMemory:
 
 #Add different experience replay methods
 
+class CombinedReplayMemory:
+    
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.memory = deque(maxlen=capacity)
+
+    def push(self, transition):
+        
+        # YOUR CODE HERE
+        self.memory.append(transition)
+        self.transition = transition
+
+    def sample(self, batch_size):
+        samples = random.sample(self.memory, batch_size-1)
+        samples.append(self.transition)
+        return samples
+
+    def __len__(self):
+        return len(self.memory)
+
 
 
 

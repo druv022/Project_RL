@@ -106,7 +106,7 @@ def train(model, memory, optimizer, batch_size, discount_factor):
 def main():
 
     #update this disctionary as per the implementation of methods
-    memory= {'NaiveReplayMemory':NaiveReplayMemory}
+    memory= {'NaiveReplayMemory':NaiveReplayMemory,'CombinedReplayMemory' :CombinedReplayMemory}
 
     #-----------initialization---------------
     env, (input_size, output_size) = get_env(ARGS.env)
@@ -169,9 +169,9 @@ if __name__ == "__main__":
     parser.add_argument('--discount_factor', default=0.8, type=float)
     parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
                         help='type of experience replay')
-    parser.add_argument('--env', default='Acrobot-v1', type=str,
+    parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
-    parser.add_argument('--buffer', default='10000', type=int,
+    parser.add_argument('--buffer', default='100000', type=int,
                         help='buffer size for experience replay')
 
     ARGS = parser.parse_args()
