@@ -8,7 +8,7 @@ from torch import optim
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from tqdm import tqdm as _tqdm
-
+from torch.autograd import Variable
 
 #-------setup seed-----------
 random.seed(42)
@@ -74,8 +74,13 @@ def train(model, memory, optimizer, batch_size, discount_factor):
         return None
 
     # random transition batch is taken from experience replay memory
-    transitions = memory.sample(batch_size)
-    
+    #transitions = memory.sample(batch_size)
+    #---------------------------- per--------------------------
+    transitions, batch_idx = memory.sample(batch_size)
+
+    if type(transitions[0]) == int:
+        return None
+    #print(batch_idx)
     # transition is a list of 4-tuples, instead we want 4 vectors (as torch.Tensor's)
     state, action, reward, next_state, done = zip(*transitions)
     
@@ -91,9 +96,15 @@ def train(model, memory, optimizer, batch_size, discount_factor):
     
     with torch.no_grad():  # Don't compute gradient info for the target (semi-gradient)
         target = compute_target(model, reward, next_state, done, discount_factor)
-    
+
     # loss is measured from error between current and newly expected Q values
     loss = F.smooth_l1_loss(q_val, target)
+    #loss = F.mse_loss(q_val, target)
+    #------------------------------------------------------ per -------------------------------------
+    td_error = target - q_val
+    for i in range(batch_size):
+        val = abs(td_error[i].data[0])
+        memory.update(batch_idx[i], val)
 
     # backpropagation of loss to Neural Network
     optimizer.zero_grad()
@@ -106,7 +117,9 @@ def train(model, memory, optimizer, batch_size, discount_factor):
 def main():
 
     #update this disctionary as per the implementation of methods
-    memory= {'NaiveReplayMemory':NaiveReplayMemory,'CombinedReplayMemory' :CombinedReplayMemory}
+    memory= {'NaiveReplayMemory':NaiveReplayMemory,
+             'CombinedReplayMemory' :CombinedReplayMemory,
+             'PrioritizedReplayMemory':PrioritizedReplayMemory}
 
     #-----------initialization---------------
     env, (input_size, output_size) = get_env(ARGS.env)
@@ -126,11 +139,22 @@ def main():
         done = False
         epi_duration = 0
         while not done:
+            td_err=0
             eps = get_epsilon(global_steps)
             a = select_action(model, s, eps)
             s_next, r, done, _ = env.step(a)
 
-            replay.push((s, a, r, s_next, done))
+            q_val= model(torch.tensor(s, dtype=torch.float).to(device))[a]#.unsqueeze(1)
+            #print(act, act.unsqueeze(1))
+            target = (torch.tensor(r, dtype=torch.float).to(device) +\
+                 ARGS.discount_factor*torch.tensor(s_next, dtype=torch.float).to(device)).max()
+            #print(q_val)
+            #print(target)
+            td_err = target-q_val
+            #print(td_err)
+            replay.push(td_err.detach(), [s, a, r, s_next, done])
+
+            #replay.push((s, a, r, s_next, done))
             loss = train(model, replay, optimizer, ARGS.batch_size, ARGS.discount_factor)
 
             s = s_next
@@ -167,8 +191,14 @@ if __name__ == "__main__":
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--discount_factor', default=0.8, type=float)
-    parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
+    #parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
+    #                    help='type of experience replay')
+
+    parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
                         help='type of experience replay')
+
+    #parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
+     #                   help='type of experience replay')
     parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='100000', type=int,
