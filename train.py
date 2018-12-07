@@ -9,11 +9,13 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from tqdm import tqdm as _tqdm
 
+import os
 
 #-------setup seed-----------
-random.seed(42)
-torch.manual_seed(42)
-np.random.seed(42)
+seed_value = 42
+random.seed(seed_value)
+torch.manual_seed(seed_value)
+np.random.seed(seed_value)
 #----------------------------
 
 
@@ -31,7 +33,11 @@ def tqdm(*args, **kwargs):
 def get_epsilon(it):
     
     # YOUR CODE HERE
-    return np.exp(-it/450)
+    # return np.exp(-it/175)
+    if it < 1000:
+        return -9.5*1e-4*it+1
+    else:
+        return 0.05
 
 def select_action(model, state, epsilon):
     # YOUR CODE HERE
@@ -102,21 +108,29 @@ def train(model, memory, optimizer, batch_size, discount_factor):
     
     return loss.item()
 
+def smooth(x, N=10):
+    cumsum = np.cumsum(np.insert(x, 0, 0)) 
+    return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 def main():
 
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory,'CombinedReplayMemory' :CombinedReplayMemory}
+    filename = 'weights.pt'
 
     #-----------initialization---------------
     env, (input_size, output_size) = get_env(ARGS.env)
     replay = memory[ARGS.replay](ARGS.buffer)
+
+    #env seed
+    env.seed(seed_value)
 
     model =  QNetwork(input_size, output_size, ARGS.num_hidden).to(device)
     optimizer = optim.Adam(model.parameters(), ARGS.lr)
 
     global_steps = 0  # Count the steps (do not reset at episode start, to compute epsilon)
     episode_durations = []  #
+    rewards_per_episode = []
     #-------------------------------------------------------
 
     for i in tqdm(range(ARGS.num_episodes)):
@@ -125,6 +139,9 @@ def main():
         s = env.reset()
         done = False
         epi_duration = 0
+
+        # reward
+        r_sum = 0
         while not done:
             eps = get_epsilon(global_steps)
             a = select_action(model, s, eps)
@@ -137,39 +154,92 @@ def main():
             epi_duration += 1
             global_steps +=1
 
+            r_sum += r
+            #visualize
+            # env.render()
+
+        rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
+    
+    env.close()
+    filename = 'weights.pt'
+    print(f"Saving weights to {filename}")
+    torch.save({
+        # You can add more here if you need, e.g. critic
+        'policy': model.state_dict()  # Always save weights rather than objects
+    },
+    filename)
 
-    #
-    cumsum = np.cumsum(np.insert(episode_durations, 0, 0)) 
-    cumsum = (cumsum[10:] - cumsum[:-10]) / float(10)
-
-    plt.plot(cumsum)
+    plt.plot(smooth(episode_durations,100))
     plt.title('Episode durations per episode')
-    plt.show()    
+    plt.show()
+
+    plt.plot(smooth(rewards_per_episode,100))
+    plt.title("Rewards per episode")
+    plt.show()
     return episode_durations
 
 
+def get_action(state, model):
+    return model(state).exp().multinomial(1)
 
 
+def evaluate():
+    filename = 'weights.pt'
+    env, (input_size, output_size) = get_env(ARGS.env)
 
+    #set env seed
+    env.seed(seed_value)
+    
+    model =  QNetwork(input_size, output_size, ARGS.num_hidden).to(device)
+    model.eval()
 
+    if os.path.isfile(filename):
+        print(f"Loading weights from {filename}")
+        #weights = torch.load(filename)
+        weights = torch.load(filename, map_location=lambda storage, loc: storage)
+        model.load_state_dict(weights['policy'])
+    else:
+        print("Please train the model or provide the saved 'weights.pt' file")
+
+    episode_durations = []
+    for i in range(20):
+        state = env.reset()
+        done = False
+        steps = 0
+        while not done:
+            steps += 1
+            with torch.no_grad():
+                state = torch.tensor(state, dtype=torch.float).to(device)
+                action = get_action(state, model).item()
+                state, reward, done, _ = env.step(action)
+
+                env.render()
+
+        episode_durations.append(steps)
+        print(i)
+    env.close()
+    
+    plt.plot(episode_durations)
+    plt.title('Episode durations')
+    plt.show()
 
 
 if __name__ == "__main__":
 
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=100, type=int,
+    parser.add_argument('--num_episodes', default=50000, type=int,
                         help='max number of episodes')
-    parser.add_argument('--batch_size', default=64, type=int)
+    parser.add_argument('--batch_size', default=10, type=int)
                       
     parser.add_argument('--num_hidden', default=128, type=int,
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=1e-3, type=float)
     parser.add_argument('--discount_factor', default=0.8, type=float)
-    parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
+    parser.add_argument('--replay', default='CombinedReplayMemory',type=str,
                         help='type of experience replay')
-    parser.add_argument('--env', default='CartPole-v1', type=str,
+    parser.add_argument('--env', default='Acrobot-v1', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='100000', type=int,
                         help='buffer size for experience replay')
@@ -177,5 +247,6 @@ if __name__ == "__main__":
     ARGS = parser.parse_args()
 
     main()
+    # evaluate()
 
 
