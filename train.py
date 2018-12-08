@@ -1,6 +1,6 @@
 import numpy as np
 from environment import get_env
-from model import QNetwork
+from model import CartNetwork, MountainNetwork
 from replay import* 
 import argparse
 import torch
@@ -11,9 +11,9 @@ from tqdm import tqdm as _tqdm
 
 
 #-------setup seed-----------
-random.seed(42)
-torch.manual_seed(42)
-np.random.seed(42)
+random.seed(5)
+torch.manual_seed(5)
+np.random.seed(5)
 #----------------------------
 
 
@@ -27,11 +27,14 @@ print(device)
 def tqdm(*args, **kwargs):
     return _tqdm(*args, **kwargs, mininterval=1)    
 
-#using exponential decay rather than linear decay
 def get_epsilon(it):
-    
     # YOUR CODE HERE
-    return np.exp(-it/450)
+    
+    if it < 1000:
+        return -9.5*1e-4*it+1
+    else:
+        return 0.05
+        
 
 def select_action(model, state, epsilon):
     # YOUR CODE HERE
@@ -107,42 +110,57 @@ def main():
 
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory}
+    env, (input_size, output_size) = get_env(ARGS.env)
+    env.seed(5)
+
+    network = { 'CartPole-v1':CartNetwork(input_size, output_size, ARGS.num_hidden).to(device),
+                'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device)
+              }
 
     #-----------initialization---------------
-    env, (input_size, output_size) = get_env(ARGS.env)
+    
     replay = memory[ARGS.replay](ARGS.buffer)
 
-    model =  QNetwork(input_size, output_size, ARGS.num_hidden).to(device)
+    model =  network[ARGS.env]
     optimizer = optim.Adam(model.parameters(), ARGS.lr)
 
     global_steps = 0  # Count the steps (do not reset at episode start, to compute epsilon)
     episode_durations = []  #
+
+    STEP = 200
     #-------------------------------------------------------
 
-    for i in tqdm(range(ARGS.num_episodes)):
+    for i in range(ARGS.num_episodes):
         # YOUR CODE HERE
         # Sample a transition
         s = env.reset()
         done = False
         epi_duration = 0
+        
         while not done:
+            env.render()
             eps = get_epsilon(global_steps)
             a = select_action(model, s, eps)
             s_next, r, done, _ = env.step(a)
-
+            # print(r, done)
             replay.push((s, a, r, s_next, done))
             loss = train(model, replay, optimizer, ARGS.batch_size, ARGS.discount_factor)
 
             s = s_next
             epi_duration += 1
             global_steps +=1
-
         episode_durations.append(epi_duration)
-
+        # if epi_duration >= 199:
+        #     print("Failed to complete in trial {}".format(i))
+            
+        # else:
+        #     print("Completed in {} trials".format(i))
+        #     # break
+            
     #
     cumsum = np.cumsum(np.insert(episode_durations, 0, 0)) 
     cumsum = (cumsum[10:] - cumsum[:-10]) / float(10)
-
+    env.close()
     plt.plot(cumsum)
     plt.title('Episode durations per episode')
     plt.show()    
@@ -166,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_hidden', default=128, type=int,
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=1e-3, type=float)
-    parser.add_argument('--discount_factor', default=0.8, type=float)
+    parser.add_argument('--discount_factor', default=0.85, type=float)
     parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
                         help='type of experience replay')
     parser.add_argument('--env', default='Acrobot-v1', type=str,
@@ -177,5 +195,5 @@ if __name__ == "__main__":
     ARGS = parser.parse_args()
 
     main()
-
+    # python train.py --env MountainCar-v0 --lr 0.001 --num_episodes 5000 --num_hidden 64
 
