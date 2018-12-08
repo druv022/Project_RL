@@ -3,71 +3,14 @@ from collections import deque
 from environment import get_env
 import numpy
 
-class SumTree:
-    # https://github.com/wotmd5731/dqn/blob/master/memory.py
-    write = 0
-
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.tree = numpy.zeros( 2*capacity - 1 )
-        self.data = numpy.zeros( capacity, dtype=object )
-
-    def _propagate(self, idx, change):
-        parent = (idx - 1) // 2
-
-        self.tree[parent] += change
-
-        if parent != 0:
-            self._propagate(parent, change)
-
-    def _retrieve(self, idx, s):
-        left = 2 * idx + 1
-        right = left + 1
-
-        if left >= len(self.tree):
-            return idx
-
-        if s <= self.tree[left]:
-            return self._retrieve(left, s)
-        else:
-            return self._retrieve(right, s-self.tree[left])
-
-    def total(self):
-        return self.tree[0]
-
-    def add(self, p, data):
-        idx = self.write + self.capacity - 1
-
-        self.data[self.write] = data
-        self.update(idx, p)
-
-        self.write += 1
-        if self.write >= self.capacity:
-            self.write = 0
-
-    def update(self, idx, p):
-        change = p - self.tree[idx]
-
-        self.tree[idx] = p
-        self._propagate(idx, change)
-
-    def get(self, s):
-        idx = self._retrieve(0, s)
-        dataIdx = idx - self.capacity + 1
-
-        return (idx, self.tree[idx], self.data[dataIdx])
-
-
-
 
 class NaiveReplayMemory:
-    
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = deque(maxlen=capacity)
 
     def push(self, transition):
-        
         # YOUR CODE HERE
         self.memory.append(transition)
 
@@ -77,22 +20,23 @@ class NaiveReplayMemory:
     def __len__(self):
         return len(self.memory)
 
-#Add different experience replay methods
+
+# Add different experience replay methods
+
 
 class CombinedReplayMemory:
-    
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = deque(maxlen=capacity)
 
     def push(self, transition):
-        
         # YOUR CODE HERE
         self.memory.append(transition)
         self.transition = transition
 
     def sample(self, batch_size):
-        samples = random.sample(self.memory, batch_size-1)
+        samples = random.sample(self.memory, batch_size - 1)
         samples.append(self.transition)
         return samples
 
@@ -100,51 +44,152 @@ class CombinedReplayMemory:
         return len(self.memory)
 
 
-class PrioritizedReplayMemory:   # stored as ( s, a, r, s_ ) in SumTree
-    # modified https://github.com/wotmd5731/dqn/blob/master/memory.py
+class SumTree:
+    # started form https://github.com/wotmd5731/dqn/blob/master/memory.py, and modified considerably.
+    write = 0
 
-    e = 0.01
-    a = 0.6
+    def __init__(self, max_capacity):
+        self.capacity = max_capacity
+        self.tree = numpy.zeros(2 * max_capacity - 1)
+        self.data = numpy.zeros(max_capacity, dtype=object)
+        self.num = 0
+        self.e = 0.01
+        self.a = 0.6
 
-    def __init__(self, capacity):
-        self.tree = SumTree(capacity)
-        self.memory = deque(maxlen=capacity)
-
-    def _getPriority(self, error):
+    def _get_priority(self, error):
         return (error + self.e) ** self.a
 
-    def push(self, error, sample):
-        p = self._getPriority(error)
-        self.tree.add(p, sample)
-        self.memory.append(1)
+    def _propagate(self, idx, change):
+        parent = (idx - 1) // 2
 
-    def sample(self, n):
-        batch_idx = []
-        batch = []
-        segment = self.tree.total() / n
+        self.tree[parent] += change
 
-        for i in range(n):
-            a = segment * i
-            b = segment * (i + 1)
+        if parent != 0:
+            self._propagate(parent, change)
 
-            s = random.uniform(a, b)
-            (idx, p, data) = self.tree.get(s)
-            #print("!!!!!!!!!!!!!!!!",data,i,n)
-            batch.append( data)
-            batch_idx.append(idx)
+    def _retrieve(self, idx, rand):
+        left = 2 * idx + 1
+        right = left + 1
 
-        return batch , batch_idx
+        if left >= len(self.tree):
+            return idx
+
+        if rand <= self.tree[left]:
+            return self._retrieve(left, rand)
+        else:
+            return self._retrieve(right, rand - self.tree[left])
+
+    def _total(self):
+        return self.tree[0]
+
+    def add(self, error, data):
+        p = self._get_priority(error)
+        idx = self.write + self.capacity - 1
+
+        self.data[self.write] = data
+        self.update(idx, p)
+
+        self.write += 1
+        if self.write >= self.capacity:
+            self.write = 0
+        if self.num < self.capacity:
+            self.num += 1
 
     def update(self, idx, error):
-        p = self._getPriority(error)
-        self.tree.update(idx, p)
+        p = self._get_priority(error)
+        change = p - self.tree[idx]
+        self.tree[idx] = p
+        self._propagate(idx, change)
+
+    def _get_single(self):
+        rand = random.uniform(0, self._total())
+        idx = self._retrieve(0, rand)
+        data_idx = idx - self.capacity + 1
+        return idx, self.tree[idx], self.data[data_idx]
+
+    def get_batch(self, n):
+        batch_idx = []
+        batch = []
+        priorities = []
+        for i in range(n):
+            (idx, p, data) = self._get_single()
+            batch.append(data)
+            batch_idx.append(idx)
+            priorities.append(p)
+        return batch, batch_idx, priorities
+
+    def get_len(self):
+        return self.num
+
+
+class RankBased:
+    def __init__(self, max_capacity):
+        self.capacity = max_capacity
+        self.data = deque(maxlen=max_capacity)
+        self.priorities = None
+        self.total = None
+        self.cum_sum = None
+
+    def add(self, error, data):
+        self.data.append(list(data) + [error])
+
+    def update(self, idx, error):
+        self.data[idx][-1] = error
+
+    def _get_single(self):
+        rand = random.uniform(0, self.total)
+        index = numpy.searchsorted(self.cum_sum, rand)
+        return index, self.priorities[index], self.data[index][:-1]  # to exclude the error at the end
+
+    def get_batch(self, n):
+        self._update_priorities()
+        self.total = numpy.sum(self.priorities)
+        self.cum_sum = numpy.cumsum(self.priorities)
+        batch_idx = []
+        batch = []
+        priorities = []
+        for i in range(n):
+            (idx, p, data) = self._get_single()
+            batch.append(data)
+            batch_idx.append(idx)
+            priorities.append(p)
+        return batch, batch_idx, priorities
+
+    def get_len(self):
+        return len(self.data)
+
+    def _update_priorities(self):
+        length = self.get_len()
+        errors = numpy.array([data[-1] for data in self.data])
+        order = numpy.argsort(errors)
+        order = numpy.array([order[order[x]] for x in range(length)])
+        order = length - order
+        self.priorities = 1. / order
+
+
+class PrioritizedReplayMemory:
+    def __init__(self, max_capacity, method="prop"):
+        if method == "prop":
+            self.container = SumTree(max_capacity)
+        elif method == "rank":
+            self.container = RankBased(max_capacity)
+        else:
+            raise ValueError("Bad replay method")
+
+    def push(self, error, sample):
+        self.container.add(error, sample)
+
+    def sample(self, n):
+        return self.container.get_batch(n)
+
+    def update(self, idx, error):
+        self.container.update(idx, error)
 
     def __len__(self):
-        return len(self.memory)
+        return self.container.get_len()
 
 
-#sanity check
-if __name__=="__main__":
+if __name__ == "__main__":
 
     capacity = 10
     memory = PrioritizedReplayMemory(capacity)#CombinedReplayMemory(capacity)#NaiveReplayMemory(capacity)
