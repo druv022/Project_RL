@@ -6,8 +6,26 @@ from torch import optim
 from environment import get_env
 
 #Naive implementation
-class QNetwork(nn.Module):
+class MountainNetwork(nn.Module):
     
+    def __init__(self, input_size, output_size, num_hidden=128):
+        nn.Module.__init__(self)
+        self.l1 = nn.Linear(input_size, num_hidden)
+        self.l2 = nn.Linear(num_hidden, 24)
+        self.l3 = nn.Linear(24, output_size)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        
+        # YOUR CODE HERE
+        out = self.relu(self.l1(x))
+        out = self.relu(self.l2(out))
+        out = self.l3(out)
+        
+        return out
+
+class CartNetwork(nn.Module):
+
     def __init__(self, input_size, output_size, num_hidden=128):
         nn.Module.__init__(self)
         self.l1 = nn.Linear(input_size, num_hidden)
