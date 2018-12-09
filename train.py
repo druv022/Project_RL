@@ -33,11 +33,7 @@ def tqdm(*args, **kwargs):
 def get_epsilon(it):
     
     # YOUR CODE HERE
-        # return np.exp(-it/450)
-    if it < 1000:
-        return -9.5*1e-4*it+1
-    else:
-        return 0.05
+    return max(0.05,(-0.95/ARGS.num_episodes*0.05)*it + 1)
 
 def get_beta(it, total_it, beta0):
     return beta0 + (it/total_it) * (1 - beta0)
@@ -173,7 +169,7 @@ def main():
         epi_duration = 0
         r_sum = 0
         while not done:
-            eps = get_epsilon(global_steps)
+            eps = get_epsilon(i)
             a = select_action(model, s, eps)
             s_next, r, done, _ = env.step(a)
 
@@ -288,12 +284,12 @@ if __name__ == "__main__":
 
     # parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
     #                    help='type of experience replay')
-    parser.add_argument('--env', default='MountainCar-v0', type=str,
+    parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
     parser.add_argument('--beta0', default=0.4, type=float)
-    parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='prop', help='proritized reply method: {prop or rank}')
+    parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='rank', help='proritized reply method: {prop or rank}')
 
     ARGS = parser.parse_args()
 
