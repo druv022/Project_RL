@@ -190,7 +190,7 @@ def main():
         r_sum = 0
         score = 0
         for t in range(1000):        
-            eps = get_epsilon(i)
+            eps = get_epsilon(i_episode)
 
             model.eval()
             a = select_action(model, s, eps)
@@ -214,7 +214,7 @@ def main():
             else:
                 replay.push((s, a, r, s_next, done))
             
-            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.tau, beta=beta)
+            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta=beta)
 
             s = s_next
             epi_duration += 1
