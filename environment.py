@@ -22,11 +22,11 @@ import numpy as np
 		State Box(2,) 
 """
 def get_env(name):
+	#get state /action space length for our QNetwork
 
 	if name == "Acrobot-v1":
 		
 		env = gym.envs.make(name)
-		#get state /action space length for our QNetwork
 		space = (6, 3) #tuple of (state, action)
 
 		return env, space
@@ -36,20 +36,20 @@ def get_env(name):
 		space = (4, 2)
 
 		return env, space
-	else:
+	elif name == "MountainCar-v0":
 
 		env = gym.envs.make(name)
 		space = (2, 3)
 
 		return env, space
 
+	elif name == 'LunarLander-v2':
+		env = gym.envs.make(name)
+		space = (8,4)
 
-
-
-	env = gym.envs.make(name)
-	state_space = env.observation_space
-	return env, np.size(state_space.high) 
-
+		return env, space
+	
+	return 0
 if __name__=="__main__":
 	env, _ = get_env("Acrobot-v1")
 	a = env.action_space.sample()

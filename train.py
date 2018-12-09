@@ -1,6 +1,6 @@
 import numpy as np
 from environment import get_env
-from model import CartNetwork, MountainNetwork
+from model import* 
 from replay import* 
 import argparse
 import torch
@@ -37,18 +37,30 @@ def get_epsilon(it):
         
 
 def select_action(model, state, epsilon):
-    # YOUR CODE HERE
+    
     state = torch.from_numpy(state).float()
     with torch.no_grad():
         actions = model(state.to(device))
         
-        rand_num = np.random.uniform(0,1,1)
-        if epsilon > rand_num:
-            index = torch.randint(0,len(actions),(1,1))
-        else:
-            value, index = actions.max(0)
-            
-        return int(index.item())
+    rand_num = np.random.uniform(0,1,1)
+    if epsilon > rand_num:
+        index = torch.randint(0,len(actions),(1,1))
+    else:
+        value, index = actions.max(0)
+        
+    return int(index.item())
+def soft_update(local_model, target_model, tau):
+        """Soft update model parameters.
+        θ_target = τ*θ_local + (1 - τ)*θ_target
+
+        Params
+        ======
+            local_model (PyTorch model): weights will be copied from
+            target_model (PyTorch model): weights will be copied to
+            tau (float): interpolation parameter 
+        """
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
 def compute_q_val(model, state, action):
     
@@ -56,20 +68,20 @@ def compute_q_val(model, state, action):
     actions = model(state)
     return actions.gather(1, action.unsqueeze(1))
 
-def compute_target(model, reward, next_state, done, discount_factor):
+def compute_target(model_target, reward, next_state, done, discount_factor):
     # done is a boolean (vector) that indicates if next_state is terminal (episode is done)
     # YOUR CODE HERE
     non_terminal_states_mask = torch.tensor([1 if not s else 0 for s in done])
     non_terminal_states = next_state[non_terminal_states_mask.nonzero().squeeze(1)]
     
     next_state_values = torch.zeros(done.size()[0]).to(device)
-    next_state_values[non_terminal_states_mask.nonzero().squeeze(1)],_ = model(non_terminal_states).max(1)
+    next_state_values[non_terminal_states_mask.nonzero().squeeze(1)],_ = model_target(non_terminal_states).max(1)
     
     target = reward + discount_factor*next_state_values
     
-    return target.unsqueeze(1)
+    return target.detach().unsqueeze(1)
 
-def train(model, memory, optimizer, batch_size, discount_factor):
+def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU):
     # DO NOT MODIFY THIS FUNCTION
     
     # don't learn without some decent experience
@@ -92,16 +104,18 @@ def train(model, memory, optimizer, batch_size, discount_factor):
     # compute the q value
     q_val = compute_q_val(model, state, action)
     
-    with torch.no_grad():  # Don't compute gradient info for the target (semi-gradient)
-        target = compute_target(model, reward, next_state, done, discount_factor)
+    # with torch.no_grad():  # Don't compute gradient info for the target (semi-gradient)
+    target = compute_target(model_target, reward, next_state, done, discount_factor)
     
     # loss is measured from error between current and newly expected Q values
-    loss = F.smooth_l1_loss(q_val, target)
+    loss = F.mse_loss(q_val, target)
 
     # backpropagation of loss to Neural Network
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+
+    soft_update(model, model_target, TAU)
     
     return loss.item()
 
@@ -113,49 +127,73 @@ def main():
     env, (input_size, output_size) = get_env(ARGS.env)
     env.seed(5)
 
-    network = { 'CartPole-v1':CartNetwork(input_size, output_size, ARGS.num_hidden).to(device),
-                'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device)
+    network = { 
+                'CartPole-v1':CartNetwork(input_size, output_size, ARGS.num_hidden).to(device),
+                'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device),
+                'LunarLander-v2':LanderNetwork(input_size, output_size, ARGS.num_hidden).to(device)
               }
 
     #-----------initialization---------------
     
     replay = memory[ARGS.replay](ARGS.buffer)
 
-    model =  network[ARGS.env]
+    #-----------------------------------------
+    model =  network[ARGS.env]#local_network
+    model_target = network[ARGS.env]#target_network
+    #-----------------------------------------
+    
     optimizer = optim.Adam(model.parameters(), ARGS.lr)
 
     global_steps = 0  # Count the steps (do not reset at episode start, to compute epsilon)
     episode_durations = []  #
-
+    scores = []# list containing scores from each episode
+    scores_window = deque(maxlen=100) 
+    eps = ARGS.EPS
     STEP = 200
     #-------------------------------------------------------
 
-    for i in range(ARGS.num_episodes):
+    for i_episode in range(ARGS.num_episodes):
         # YOUR CODE HERE
         # Sample a transition
         s = env.reset()
-        done = False
         epi_duration = 0
-        
-        while not done:
+        score=0
+        for t in range(1000):
             env.render()
-            eps = get_epsilon(global_steps)
+            # eps = get_epsilon(global_steps)
+            #-------------------------------
+            model.eval()
             a = select_action(model, s, eps)
+            model.train()
+            #------------------------------
             s_next, r, done, _ = env.step(a)
             # print(r, done)
             replay.push((s, a, r, s_next, done))
-            loss = train(model, replay, optimizer, ARGS.batch_size, ARGS.discount_factor)
+            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU)
 
             s = s_next
             epi_duration += 1
             global_steps +=1
+            score += r
+            if done:
+                break
+        eps = max(0.01, ARGS.eps_decay*eps)
         episode_durations.append(epi_duration)
-        # if epi_duration >= 199:
-        #     print("Failed to complete in trial {}".format(i))
+        scores_window.append(score)# save most recent score
+        scores.append(score) 
+        
+        if i_episode % 100 == 0:
+            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
+        if np.mean(scores_window)>=200.0:
+            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(scores_window)))
+            # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
+            break
+        if epi_duration >= 199:
+            print("Failed to complete in trial {}".format(i_episode))
             
-        # else:
-        #     print("Completed in {} trials".format(i))
-        #     # break
+        else:
+            print("Completed in {} trials".format(i_episode))
+            # break
             
     #
     cumsum = np.cumsum(np.insert(episode_durations, 0, 0)) 
@@ -177,7 +215,7 @@ if __name__ == "__main__":
 
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=100, type=int,
+    parser.add_argument('--num_episodes', default=1000, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
@@ -187,13 +225,21 @@ if __name__ == "__main__":
     parser.add_argument('--discount_factor', default=0.85, type=float)
     parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
                         help='type of experience replay')
-    parser.add_argument('--env', default='Acrobot-v1', type=str,
+    parser.add_argument('--env', default='LunarLander-v2', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
+    parser.add_argument('--TAU', default='1e-3', type=float,
+                        help='parameter for soft update of weight')
+    parser.add_argument('--EPS', default='1.0', type=float,
+                        help='epsilon')
+    parser.add_argument('--eps_decay', default='.995', type=float,
+                        help='decay constant')
+    
 
     ARGS = parser.parse_args()
 
     main()
     # python train.py --env MountainCar-v0 --lr 0.001 --num_episodes 5000 --num_hidden 64
+    # python train.py --buffer 100000 --discount_factor 0.99 --lr .0005
 
