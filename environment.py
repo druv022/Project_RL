@@ -41,7 +41,6 @@ def get_env(name):
 		space = (8,4)
 		return env, space
 	else:
-
 		env = gym.envs.make(name)
 		space = (2, 3)
 

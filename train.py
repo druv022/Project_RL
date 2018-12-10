@@ -86,7 +86,7 @@ def compute_target(model_target, reward, next_state, done, discount_factor):
     
     return target.detach().unsqueeze(1)
 
-def train(model, model_target,memory, optimizer, batch_size, discount_factor, TAU, beta=None):
+def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None):
     # DO NOT MODIFY THIS FUNCTION
     
     # don't learn without some decent experience
@@ -129,8 +129,8 @@ def train(model, model_target,memory, optimizer, batch_size, discount_factor, TA
             memory.update(batch_idx[i], val)
     else:
         # loss is measured from error between current and newly expected Q values
+        # loss = F.smooth_l1_loss(q_val, target)
         loss = F.mse_loss(q_val, target)
-        #loss = F.mse_loss(q_val, target)
 
     # backpropagation of loss to Neural Network
     optimizer.zero_grad()
@@ -189,8 +189,8 @@ def main():
         epi_duration = 0
         r_sum = 0
         score = 0
-        for t in range(1000):        
-            eps = get_epsilon(i_episode)
+        for t in range(1000):
+            eps = get_epsilon(ARGS.decay_steps)
 
             model.eval()
             a = select_action(model, s, eps)
@@ -265,16 +265,17 @@ def get_action(state, model):
 
 def evaluate():
     if ARGS.replay == 'PrioritizedReplayMemory':
-        filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_.pt'
+        filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env +'_.pt'
     else:
-        filename = 'weights_'+str(ARGS.replay)+'_.pt'
+        filename = 'weights_'+str(ARGS.replay)+'_'+ ARGS.env +'_.pt'
 
     env, (input_size, output_size) = get_env(ARGS.env)
     #set env seed
     env.seed(seed_value)
 
     network = { 'CartPole-v1':CartNetwork(input_size, output_size, ARGS.num_hidden).to(device),
-            'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device)}
+            'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device),
+            'LunarLander-v2':LanderNetwork(input_size, output_size, ARGS.num_hidden).to(device)}
     
     model =  network[ARGS.env]
     model.eval()
@@ -306,7 +307,6 @@ def evaluate():
     plt.show()
 
 if __name__ == "__main__":
-
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_episodes', default=1000, type=int,
@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
                        help='type of experience replay')
-    parser.add_argument('--env', default='CartPole-v1', type=str,
+    parser.add_argument('--env', default='MountainCar-v0', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
@@ -334,6 +334,8 @@ if __name__ == "__main__":
                 help='proritized reply method: {prop or rank}')
     parser.add_argument('--TAU', default='1e-3', type=float,\
                         help='parameter for soft update of weight')
+    parser.add_argument('--decay_steps', default='1e6', type=float,\
+                        help='number of steps for linear decay of epsilon; CartPole=1e3,')
 
     ARGS = parser.parse_args()
 
