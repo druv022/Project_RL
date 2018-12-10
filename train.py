@@ -238,8 +238,8 @@ def main():
             break
         if epi_duration >= 199:
             print("Failed to complete in trial {}".format(i_episode))
-        else:
-            print("Completed in {} trials".format(i_episode))
+        # else:
+        #     print("Completed in {} trials".format(i_episode))
             # break
 
     env.close()
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_episodes', default=1000, type=int,
                         help='max number of episodes')
-    parser.add_argument('--batch_size', default=10, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
                       
     parser.add_argument('--num_hidden', default=64, type=int,
                         help='dimensionality of hidden space')
@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
                        help='type of experience replay')
-    parser.add_argument('--env', default='LunarLander-v2', type=str,
+    parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
