@@ -3,14 +3,14 @@ from collections import deque
 from environment import get_env
 import numpy
 
-
 class NaiveReplayMemory:
-
+    
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = deque(maxlen=capacity)
 
     def push(self, transition):
+        
         # YOUR CODE HERE
         self.memory.append(transition)
 
@@ -20,23 +20,22 @@ class NaiveReplayMemory:
     def __len__(self):
         return len(self.memory)
 
-
-# Add different experience replay methods
-
+#Add different experience replay methods
 
 class CombinedReplayMemory:
-
+    
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = deque(maxlen=capacity)
 
     def push(self, transition):
+        
         # YOUR CODE HERE
         self.memory.append(transition)
         self.transition = transition
 
     def sample(self, batch_size):
-        samples = random.sample(self.memory, batch_size - 1)
+        samples = random.sample(self.memory, batch_size-1)
         samples.append(self.transition)
         return samples
 
@@ -45,23 +44,25 @@ class CombinedReplayMemory:
 
 
 class SumTree:
-    # started form https://github.com/wotmd5731/dqn/blob/master/memory.py, and modified considerably.
+    # started from https://github.com/wotmd5731/dqn/blob/master/memory.py
     write = 0
 
     def __init__(self, max_capacity):
         self.capacity = max_capacity
-        self.tree = numpy.zeros(2 * max_capacity - 1)
-        self.data = numpy.zeros(max_capacity, dtype=object)
+        self.tree = numpy.zeros( 2*max_capacity - 1 )
+        self.data = numpy.zeros( max_capacity, dtype=object)
         self.num = 0
         self.e = 0.01
         self.a = 0.6
 
     def _get_priority(self, error):
+        #if error >=0:
         return (error + self.e) ** self.a
+        #else:
+        #    return self._total()
 
     def _propagate(self, idx, change):
         parent = (idx - 1) // 2
-
         self.tree[parent] += change
 
         if parent != 0:
@@ -77,7 +78,7 @@ class SumTree:
         if rand <= self.tree[left]:
             return self._retrieve(left, rand)
         else:
-            return self._retrieve(right, rand - self.tree[left])
+            return self._retrieve(right, rand-self.tree[left])
 
     def _total(self):
         return self.tree[0]
@@ -98,6 +99,7 @@ class SumTree:
     def update(self, idx, error):
         p = self._get_priority(error)
         change = p - self.tree[idx]
+
         self.tree[idx] = p
         self._propagate(idx, change)
 
@@ -167,7 +169,9 @@ class RankBased:
         self.priorities = 1. / order
 
 
-class PrioritizedReplayMemory:
+class PrioritizedReplayMemory:   # stored as ( s, a, r, s_ ) in SumTree
+    # modified https://github.com/wotmd5731/dqn/blob/master/memory.py
+
     def __init__(self, max_capacity, method="prop"):
         if method == "prop":
             self.container = SumTree(max_capacity)
@@ -189,7 +193,8 @@ class PrioritizedReplayMemory:
         return self.container.get_len()
 
 
-if __name__ == "__main__":
+#sanity check
+if __name__=="__main__":
 
     capacity = 10
     memory = PrioritizedReplayMemory(capacity)#CombinedReplayMemory(capacity)#NaiveReplayMemory(capacity)
