@@ -33,7 +33,7 @@ def tqdm(*args, **kwargs):
 def get_epsilon(it):
     
     # YOUR CODE HERE
-    return max(0.05,(-0.95/ARGS.decay_steps)*it + 1)
+    return max(0.10,(-0.90/ARGS.decay_steps)*it + 1)
 
 def get_beta(it, total_it, beta0):
     return beta0 + (it/total_it) * (1 - beta0)
@@ -179,6 +179,7 @@ def main():
 
     scores = []# list containing scores from each episode
     scores_window = deque(maxlen=100) 
+    eps = ARGS.EPS
     #-------------------------------------------------------
 
     for i_episode in tqdm(range(ARGS.num_episodes)):
@@ -190,7 +191,7 @@ def main():
         r_sum = 0
         score = 0
         for t in range(1000):
-            eps = get_epsilon(global_steps)
+            # eps = get_epsilon(global_steps)
 
             model.eval()
             a = select_action(model, s, eps)
@@ -210,7 +211,7 @@ def main():
                     target = compute_target(model, reward, next_state, done_, ARGS.discount_factor)
                 td_error = F.smooth_l1_loss(q_val, target)
                 replay.push(td_error,(s, a, r, s_next, done))
-                beta = get_beta(i, ARGS.num_episodes, ARGS.beta0)
+                beta = get_beta(i_episode, ARGS.num_episodes, ARGS.beta0)
             else:
                 replay.push((s, a, r, s_next, done))
             
@@ -227,6 +228,7 @@ def main():
             #visualize
             env.render()
 
+        eps = max(0.01, ARGS.eps_decay*eps)
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
@@ -238,6 +240,7 @@ def main():
             break
         if epi_duration >= 199:
             print("Failed to complete in trial {}".format(i_episode))
+            # print("Global steps", global_steps,"/n Epsilin", get_epsilon(global_steps))
         # else:
         #     print("Completed in {} trials".format(i_episode))
             # break
@@ -309,14 +312,14 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=1000, type=int,
+    parser.add_argument('--num_episodes', default=400, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
     parser.add_argument('--num_hidden', default=64, type=int,
                         help='dimensionality of hidden space')
-    parser.add_argument('--lr', default=1e-3, type=float)
-    parser.add_argument('--discount_factor', default=0.8, type=float)
+    parser.add_argument('--lr', default=5e-4, type=float)
+    parser.add_argument('--discount_factor', default=0.85, type=float)
     # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
     #                    help='type of experience replay')
 
@@ -325,7 +328,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
                        help='type of experience replay')
-    parser.add_argument('--env', default='MountainCar-v0', type=str,
+    parser.add_argument('--env', default='LunarLander-v2', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
@@ -334,8 +337,12 @@ if __name__ == "__main__":
                 help='proritized reply method: {prop or rank}')
     parser.add_argument('--TAU', default='1e-3', type=float,\
                         help='parameter for soft update of weight')
-    parser.add_argument('--decay_steps', default='1e6', type=float,\
-                        help='number of steps for linear decay of epsilon; CartPole=1e3,')
+    # parser.add_argument('--decay_steps', default='1e4', type=float,\
+    #                     help='number of steps for linear decay of epsilon; CartPole=1e3,')
+    parser.add_argument('--EPS', default='1.0', type=float,
+                        help='epsilon')
+    parser.add_argument('--eps_decay', default='.995', type=float,
+                        help='decay constant')
 
     ARGS = parser.parse_args()
 
