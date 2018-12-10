@@ -188,7 +188,23 @@ def main():
     rewards_per_episode = []
 
     scores = []# list containing scores from each episode
-    scores_window = deque(maxlen=100) 
+    scores_window = deque(maxlen=100)
+    
+    # create new file to store durations
+    i = 0
+    exists = os.path.isfile("durations0.txt")
+    while exists:
+        i += 1
+        exists = os.path.isfile("durations%d.txt" % i)
+    fd = open("durations%d.txt" % i,"w+")
+
+    # create new file to store rewards
+    i = 0
+    exists = os.path.isfile("rewards0.txt")
+    while exists:
+        i += 1
+        exists = os.path.isfile("rewards%d.txt" % i)
+    fr = open("rewards%d.txt" % i,"w+")
     #-------------------------------------------------------
 
     for i_episode in tqdm(range(ARGS.num_episodes)):
@@ -240,6 +256,10 @@ def main():
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
+        # store episode data in files
+        fr.write("%d\n" % r_sum)
+        fd.write("%d\n" % epi_duration)
+
         '''
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(rewards_per_episode)))
@@ -254,6 +274,10 @@ def main():
             # break
         '''
 
+    # close files
+    fd.close()
+    fr.close()
+    
     env.close()
     
     print(f"Saving weights to {filename}")
