@@ -35,6 +35,7 @@ def get_epsilon(it):
     
     # YOUR CODE HERE
     return max(0.05,(-0.95/ARGS.decay_steps)*it + 1)
+    #return np.exp(-it / 450)
 
 def get_beta(it, total_it, beta0):
     return beta0 + (it/total_it) * (1 - beta0)
@@ -65,6 +66,10 @@ def soft_update(local_model, target_model, tau):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
+def target_update(local_model, target_model):
+    for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+        target_param.data.copy_(local_param.data)
+
 def compute_q_val(model, state, action):
     
     # YOUR CODE HERE
@@ -87,7 +92,7 @@ def compute_target(model_target, reward, next_state, done, discount_factor):
     
     return target.detach().unsqueeze(1)
 
-def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None):
+def train(iter, model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None):
     # DO NOT MODIFY THIS FUNCTION
     
     # don't learn without some decent experience
@@ -123,7 +128,7 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     if ARGS.replay == 'PrioritizedReplayMemory':
         w = (1/(batch_size * np.array(priorities)) ** beta)
         w = torch.tensor(w, dtype=torch.float, requires_grad=False).to(device)
-        w = w / torch.max(w)
+        #w = w / torch.max(w)
 
         loss = torch.mean(w * abs(q_val - target))
         td_error = target - q_val
@@ -140,7 +145,9 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     loss.backward()
     optimizer.step()
 
-    soft_update(model, model_target, TAU)
+    if iter+1 % TAU == 0:
+        target_update(model, model_target)
+    #soft_update(model, model_target, TAU)
     
     return loss.item()
 
@@ -210,14 +217,14 @@ def main():
                 done_ = torch.tensor(done, dtype=torch.uint8).to(device).unsqueeze(0)
                 with torch.no_grad():
                     q_val = compute_q_val(model, state, action)
-                    target = compute_target(model, reward, next_state, done_, ARGS.discount_factor)
+                    target = compute_target(model_target, reward, next_state, done_, ARGS.discount_factor)
                 td_error = F.smooth_l1_loss(q_val, target)
                 replay.push(td_error,(s, a, r, s_next, done))
                 beta = get_beta(i_episode, ARGS.num_episodes, ARGS.beta0)
             else:
                 replay.push((s, a, r, s_next, done))
             
-            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta=beta)
+            loss = train(t, model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta=beta)
 
             s = s_next
             epi_duration += 1
@@ -314,7 +321,7 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=1000, type=int,
+    parser.add_argument('--num_episodes', default=200, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
@@ -337,9 +344,11 @@ if __name__ == "__main__":
     parser.add_argument('--beta0', default=0.4, type=float)
     parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='prop', \
                 help='proritized reply method: {prop or rank}')
-    parser.add_argument('--TAU', default='1e-3', type=float,\
+    parser.add_argument('--TAU', default='500', type=int,\
                         help='parameter for soft update of weight')
-    parser.add_argument('--decay_steps', default='1e6', type=float,\
+    # parser.add_argument('--TAU', default='1e-3', type=float,\
+    #                     help='parameter for soft update of weight')
+    parser.add_argument('--decay_steps', default='1e3', type=float,\
                         help='number of steps for linear decay of epsilon; CartPole=1e3,')
 
     ARGS = parser.parse_args()

@@ -103,8 +103,8 @@ class SumTree:
         self.tree[idx] = p
         self._propagate(idx, change)
 
-    def _get_single(self):
-        rand = random.uniform(0, self._total())
+    def _get_single(self, a, b):
+        rand = random.uniform(a, b)
         idx = self._retrieve(0, rand)
         data_idx = idx - self.capacity + 1
         return idx, self.tree[idx], self.data[data_idx]
@@ -113,8 +113,13 @@ class SumTree:
         batch_idx = []
         batch = []
         priorities = []
+
+        segment = self._total() / n
+
         for i in range(n):
-            (idx, p, data) = self._get_single()
+            a = segment * i
+            b = segment * (i + 1)
+            (idx, p, data) = self._get_single(a, b)
             batch.append(data)
             batch_idx.append(idx)
             priorities.append(p)
@@ -138,8 +143,8 @@ class RankBased:
     def update(self, idx, error):
         self.data[idx][-1] = error
 
-    def _get_single(self):
-        rand = random.uniform(0, self.total)
+    def _get_single(self, a, b):
+        rand = random.uniform(a, b)
         index = numpy.searchsorted(self.cum_sum, rand)
         return index, self.priorities[index], self.data[index][:-1]  # to exclude the error at the end
 
@@ -150,8 +155,13 @@ class RankBased:
         batch_idx = []
         batch = []
         priorities = []
+
+        segment = self.total / n
+
         for i in range(n):
-            (idx, p, data) = self._get_single()
+            a = segment * i
+            b = segment * (i + 1)
+            (idx, p, data) = self._get_single(a,b)
             batch.append(data)
             batch_idx.append(idx)
             priorities.append(p)
