@@ -210,7 +210,7 @@ def main():
                     target = compute_target(model, reward, next_state, done_, ARGS.discount_factor)
                 td_error = F.smooth_l1_loss(q_val, target)
                 replay.push(td_error,(s, a, r, s_next, done))
-                beta = get_beta(i, ARGS.num_episodes, ARGS.beta0)
+                beta = get_beta(i_episode, ARGS.num_episodes, ARGS.beta0)
             else:
                 replay.push((s, a, r, s_next, done))
             
@@ -309,7 +309,7 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=1000, type=int,
+    parser.add_argument('--num_episodes', default=30000, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
@@ -320,11 +320,11 @@ if __name__ == "__main__":
     # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
     #                    help='type of experience replay')
 
-    # parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
-    #                     help='type of experience replay')
+    parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
+                        help='type of experience replay')
 
-    parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
-                       help='type of experience replay')
+    # parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
+    #                    help='type of experience replay')
     parser.add_argument('--env', default='MountainCar-v0', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
