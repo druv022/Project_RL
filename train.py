@@ -33,7 +33,7 @@ def tqdm(*args, **kwargs):
 def get_epsilon(it):
     
     # YOUR CODE HERE
-    return max(0.05,(-0.95/ARGS.num_episodes*0.05)*it + 1)
+    return max(0.05,(-0.95/ARGS.decay_steps)*it + 1)
 
 def get_beta(it, total_it, beta0):
     return beta0 + (it/total_it) * (1 - beta0)
@@ -190,7 +190,7 @@ def main():
         r_sum = 0
         score = 0
         for t in range(1000):
-            eps = get_epsilon(ARGS.decay_steps)
+            eps = get_epsilon(global_steps)
 
             model.eval()
             a = select_action(model, s, eps)
