@@ -193,19 +193,23 @@ def main():
     
     # create new file to store durations
     i = 0
-    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt")
+    fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt"
+    exists = os.path.isfile(fd_name)
     while exists:
         i += 1
-        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i)
-    fd = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i,"w+")
+        fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i
+        exists = os.path.isfile(fd_name)
+    fd = open(fd_name,"w+")
 
     # create new file to store rewards
     i = 0
-    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards0.txt")
+    fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards0.txt"
+    exists = os.path.isfile(fr_name)
     while exists:
         i += 1
-        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i)
-    fr = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i,"w+")
+        fr_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i
+        exists = os.path.isfile(fr_name)
+    fr = open(fr_name,"w+")
 
 
     # Save experiment hyperparams
@@ -271,7 +275,13 @@ def main():
         scores_window.append(r_sum/float(epi_duration))
         # store episode data in files
         fr.write("%d\n" % r_sum)
+        fr.close()
+        fr = open(fr_name, "a")
+
         fd.write("%d\n" % epi_duration)
+        fd.close()
+        fd = open(fd_name, "a")
+
 
         #if i_episode % 100 == 0:
         #    print("\n", rewards_per_episode)
