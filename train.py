@@ -177,7 +177,7 @@ def main():
     rewards_per_episode = []
 
     scores = []# list containing scores from each episode
-    scores_window = deque(maxlen=100)
+    scores_window = deque(maxlen=100) 
     eps = ARGS.EPS
     #-------------------------------------------------------
 
@@ -236,8 +236,10 @@ def main():
         #     print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
             # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
             break
+
         # if epi_duration >= 500: # this value is environment dependent
         #     print("Failed to complete in trial {}".format(i_episode))
+
         # else:
             # print("Completed in {} trials".format(i_episode))
             # break
@@ -309,14 +311,14 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=1000, type=int,
+    parser.add_argument('--num_episodes', default=400, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
     parser.add_argument('--num_hidden', default=64, type=int,
                         help='dimensionality of hidden space')
-    parser.add_argument('--lr', default=1e-3, type=float)
-    parser.add_argument('--discount_factor', default=0.8, type=float)
+    parser.add_argument('--lr', default=5e-4, type=float)
+    parser.add_argument('--discount_factor', default=0.85, type=float)
     # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
     #                    help='type of experience replay')
 
@@ -325,7 +327,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
                        help='type of experience replay')
-    parser.add_argument('--env', default='MountainCar-v0', type=str,
+    parser.add_argument('--env', default='LunarLander-v2', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
