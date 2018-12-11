@@ -30,10 +30,9 @@ def tqdm(*args, **kwargs):
     return _tqdm(*args, **kwargs, mininterval=1)    
 
 #using exponential decay rather than linear decay
-def get_epsilon(it):
-    
-    # YOUR CODE HERE
-    return max(0.05,(-0.95/ARGS.decay_steps)*it + 1)
+# def get_epsilon(it):
+#     # YOUR CODE HERE
+#     return max(0.01,(-0.95/ARGS.decay_steps)*it + 1)
 
 def get_beta(it, total_it, beta0):
     return beta0 + (it/total_it) * (1 - beta0)
@@ -178,7 +177,8 @@ def main():
     rewards_per_episode = []
 
     scores = []# list containing scores from each episode
-    scores_window = deque(maxlen=100) 
+    scores_window = deque(maxlen=100)
+    eps = ARGS.EPS
     #-------------------------------------------------------
 
     for i_episode in tqdm(range(ARGS.num_episodes)):
@@ -188,9 +188,8 @@ def main():
         done = False
         epi_duration = 0
         r_sum = 0
-        score = 0
         for t in range(1000):
-            eps = get_epsilon(global_steps)
+            # eps = get_epsilon(global_steps)
 
             model.eval()
             a = select_action(model, s, eps)
@@ -225,21 +224,22 @@ def main():
 
             r_sum += r
             #visualize
-            env.render()
+            # env.render()
 
+        eps = max(0.01, ARGS.eps_decay*eps)
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(rewards_per_episode)))
-        if np.mean(scores_window)>=200.0:
-            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
+        # if np.mean(scores_window)>=200.0:
+        #     print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
             # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
             break
-        if epi_duration >= 199:
-            print("Failed to complete in trial {}".format(i_episode))
+        # if epi_duration >= 500: # this value is environment dependent
+        #     print("Failed to complete in trial {}".format(i_episode))
         # else:
-        #     print("Completed in {} trials".format(i_episode))
+            # print("Completed in {} trials".format(i_episode))
             # break
 
     env.close()
@@ -309,7 +309,7 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=30000, type=int,
+    parser.add_argument('--num_episodes', default=1000, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
@@ -320,11 +320,11 @@ if __name__ == "__main__":
     # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
     #                    help='type of experience replay')
 
-    parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
-                        help='type of experience replay')
+    # parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
+    #                     help='type of experience replay')
 
-    # parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
-    #                    help='type of experience replay')
+    parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
+                       help='type of experience replay')
     parser.add_argument('--env', default='MountainCar-v0', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
@@ -334,8 +334,12 @@ if __name__ == "__main__":
                 help='proritized reply method: {prop or rank}')
     parser.add_argument('--TAU', default='1e-3', type=float,\
                         help='parameter for soft update of weight')
-    parser.add_argument('--decay_steps', default='1e6', type=float,\
-                        help='number of steps for linear decay of epsilon; CartPole=1e3,')
+    # parser.add_argument('--decay_steps', default='1e5', type=float,\
+                        # help='number of steps for linear decay of epsilon; CartPole=1e3,')
+    parser.add_argument('--EPS', default='1.0', type=float,
+                        help='epsilon')
+    parser.add_argument('--eps_decay', default=.995, type=float,
+                        help='decay constant')
 
     ARGS = parser.parse_args()
 
