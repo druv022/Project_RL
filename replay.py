@@ -106,7 +106,7 @@ class SumTree:
         data_idx = idx - self.capacity + 1
         return idx, self.tree[idx], self.data[data_idx]
 
-    def get_batch(self, n, update_flag, priority_list):
+    def get_batch(self, n):
         batch_idx = []
         batch = []
         priorities = []
@@ -120,7 +120,7 @@ class SumTree:
             batch.append(data)
             batch_idx.append(idx)
             priorities.append(p)
-        return batch, batch_idx, priorities, priority_list
+        return batch, batch_idx, priorities
 
     def get_len(self):
         return self.num
@@ -133,9 +133,15 @@ class RankBased:
         self.priorities = None
         self.total = None
         self.cum_sum = None
+        self.update_flag = False
+        self.mod = 10
 
     def add(self, error, data):
         self.data.append(list(data) + [error])
+        if self.get_len() % self.mod == 0:
+            self.mod = min(10000, self.mod * 10)
+            # print("updated to ", self.mod)
+            self.update_flag = True
 
     def update(self, idx, error):
         self.data[idx][-1] = error
@@ -145,9 +151,9 @@ class RankBased:
         index = numpy.searchsorted(self.cum_sum, rand)
         return index, self.priorities[index], self.data[index][:-1]  # to exclude the error at the end
 
-    def get_batch(self, n, update_flag, priority_list):
-
-        priority_list = self._update_priorities(update_flag, priority_list)
+    def get_batch(self, n):
+        if self.update_flag or self.priorities is None:
+            self._update_priorities()
 
         self.total = numpy.sum(self.priorities)
         self.cum_sum = numpy.cumsum(self.priorities)
@@ -159,23 +165,20 @@ class RankBased:
             batch.append(data)
             batch_idx.append(idx)
             priorities.append(p)
-        return batch, batch_idx, priorities, priority_list
+        return batch, batch_idx, priorities
 
     def get_len(self):
         return len(self.data)
 
-    def _update_priorities(self, update_flag,priority_list):
-        if update_flag:
-            length = self.get_len()
-            errors = numpy.array([data[-1] for data in self.data])
-            order = numpy.argsort(errors)
-            order = numpy.array([order[order[x]] for x in range(length)])
-            order = length - order
-            self.priorities = 1. / order
-            priority_list = self.priorities
-        else:
-            self.priorities = priority_list
-        return priority_list
+    def _update_priorities(self):
+
+        length = self.get_len()
+        errors = numpy.array([data[-1] for data in self.data])
+        order = numpy.argsort(errors)
+        order = numpy.array([order[order[x]] for x in range(length)])
+        order = length - order
+        self.priorities = 1. / order
+        self.update_flag = False
 
 
 class PrioritizedReplayMemory:  # stored as ( s, a, r, s_ ) in SumTree
@@ -192,8 +195,8 @@ class PrioritizedReplayMemory:  # stored as ( s, a, r, s_ ) in SumTree
     def push(self, error, sample):
         self.container.add(error, sample)
 
-    def sample(self, n, update_flag, priority_list):
-        return self.container.get_batch(n, update_flag, priority_list)
+    def sample(self, n):
+        return self.container.get_batch(n)
 
     def update(self, idx, error):
         self.container.update(idx, error)

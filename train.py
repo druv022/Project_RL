@@ -98,7 +98,7 @@ def compute_target(model_target, reward, next_state, done, discount_factor):
     return target.detach().unsqueeze(1)
 
 
-def train(priority_list, iter, model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None, update_flag = False):
+def train(iter, model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None):
     # DO NOT MODIFY THIS FUNCTION
 
     # don't learn without some decent experience
@@ -108,7 +108,7 @@ def train(priority_list, iter, model, model_target, memory, optimizer, batch_siz
     # transition batch is taken from experience replay memory
 
     if ARGS.replay == 'PrioritizedReplayMemory':
-        transitions, batch_idx, priorities, priority_list = memory.sample(batch_size, update_flag, priority_list)
+        transitions, batch_idx, priorities = memory.sample(batch_size)
     else:
         transitions = memory.sample(batch_size)
 
@@ -156,7 +156,7 @@ def train(priority_list, iter, model, model_target, memory, optimizer, batch_siz
         target_update(model, model_target)
     # soft_update(model, model_target, TAU)
 
-    return priority_list
+    return loss.item()
 
 
 def smooth(x, N=10):
@@ -230,9 +230,6 @@ def main():
     scores = []  # list containing scores from each episode
     scores_window = deque(maxlen=100)
     # -------------------------------------------------------
-    processed_exp = -1
-    update_flag = False
-    priority_list = []
     for i_episode in tqdm(range(ARGS.num_episodes)):
         # YOUR CODE HERE
         # Sample a transition
@@ -242,8 +239,6 @@ def main():
         r_sum = 0
         score = 0
         for t in range(1000):
-            processed_exp += 1
-
             eps = get_epsilon(global_steps)
 
             model.eval()
@@ -254,9 +249,6 @@ def main():
 
             beta = None
             if ARGS.replay == 'PrioritizedReplayMemory':
-                if processed_exp % 10000 == 0 or processed_exp < 10000:
-                    update_flag = True
-
                 state = torch.tensor(s, dtype=torch.float).to(device).unsqueeze(0)
                 action = torch.tensor(a, dtype=torch.int64).to(device).unsqueeze(0)  # Need 64 bit to use them as index
                 next_state = torch.tensor(s_next, dtype=torch.float).to(device).unsqueeze(0)
@@ -271,8 +263,7 @@ def main():
             else:
                 replay.push((s, a, r, s_next, done))
 
-            priority_list = train(priority_list, t, model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta, update_flag)
-            update_flag = False
+            loss = train(t, model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta)
 
             s = s_next
             epi_duration += 1
