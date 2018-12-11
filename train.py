@@ -272,7 +272,7 @@ def main():
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
-        scores_window.append(r_sum/float(epi_duration))
+        scores_window.append(r_sum)#/float(epi_duration))
         # store episode data in files
         fr.write("%d\n" % r_sum)
         fr.close()
