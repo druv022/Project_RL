@@ -128,7 +128,8 @@ def train(iter, model, model_target, memory, optimizer, batch_size, discount_fac
     if ARGS.replay == 'PrioritizedReplayMemory':
         w = (1/(batch_size * np.array(priorities)) ** beta)
         w = torch.tensor(w, dtype=torch.float, requires_grad=False).to(device)
-        #w = w / torch.max(w)
+        if ARGS.norm:
+            w = w / torch.max(w)
 
         loss = torch.mean(w * abs(q_val - target))
         td_error = target - q_val
@@ -374,7 +375,8 @@ if __name__ == "__main__":
     #                     help='parameter for soft update of weight')
     parser.add_argument('--decay_steps', default='1e3', type=float,\
                         help='number of steps for linear decay of epsilon; CartPole=1e3,')
-
+    parser.add_argument('--norm', default='True', type=bool,
+                        help="weight normalization: {True, False}")
     ARGS = parser.parse_args()
     print(ARGS)
 
