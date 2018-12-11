@@ -135,13 +135,17 @@ class RankBased:
         self.cum_sum = None
         self.update_flag = False
         self.mod = 8
+        self.samples_seen = 0
+        self.aux = deque(maxlen=max_capacity)
 
     def add(self, error, data):
-        self.data.append(list(data) + [error])
-        if self.get_len() % self.mod == 0:
-            self.mod = min(10000, self.mod * 2)
-            # print("updated to ", self.mod)
+        self.samples_seen += 1
+        self.aux.append(list(data) + [error])
+        if self.samples_seen % self.mod == 0:
+            self.data.extend(self.aux)
+            self.aux.clear()
             self.update_flag = True
+            self.mod = min(10000, self.mod * 2)
 
     def update(self, idx, error):
         self.data[idx][-1] = error
@@ -171,7 +175,6 @@ class RankBased:
         return len(self.data)
 
     def _update_priorities(self):
-
         length = self.get_len()
         errors = numpy.array([data[-1] for data in self.data])
         order = numpy.argsort(errors)
