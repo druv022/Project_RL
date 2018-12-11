@@ -18,13 +18,15 @@ torch.manual_seed(seed_value)
 np.random.seed(seed_value)
 #----------------------------
 
-
 #----device-----------
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
+device = None
+def set_device():
+    if ARGS.use_cuda:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cpu")
+    print(device)
 #-------------------
-
-
 
 def tqdm(*args, **kwargs):
     return _tqdm(*args, **kwargs, mininterval=1)    
@@ -145,6 +147,8 @@ def smooth(x, N=10):
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 def main():
+    # setting device to run on
+    set_device()
 
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory,
@@ -319,22 +323,22 @@ if __name__ == "__main__":
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=5e-4, type=float)
     parser.add_argument('--discount_factor', default=0.8, type=float)
-    # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
-    #                    help='type of experience replay')
+    parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
+                       help='type of experience replay')
 
     # parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
     #                     help='type of experience replay')
 
-    parser.add_argument('--replay', default='CombinedReplayMemory', choices = ['CombinedReplayMemory',\
-                        'NaiveReplayMemory','PrioritizedReplayMemory'], type=str, help='type of experience replay')
-    parser.add_argument('--env', default='CartPole-v0', type=str,
+    # parser.add_argument('--replay', default='CombinedReplayMemory', choices = ['CombinedReplayMemory',\
+    #                     'NaiveReplayMemory','PrioritizedReplayMemory'], type=str, help='type of experience replay')
+    parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
     parser.add_argument('--beta0', default=0.4, type=float)
     parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='prop', \
                 help='proritized reply method: {prop or rank}')
-    parser.add_argument('--TAU', default='1e-3', type=float,\
+    parser.add_argument('--TAU', default=1e-3, type=float,\
                         help='parameter for soft update of weight')
     # parser.add_argument('--decay_steps', default='1e5', type=float,\
                         # help='number of steps for linear decay of epsilon; CartPole=1e3,')
@@ -342,10 +346,11 @@ if __name__ == "__main__":
                         help='epsilon')
     parser.add_argument('--eps_decay', default=.995, type=float,
                         help='decay constant')
+    parser.add_argument('--use_cuda', action='store_true', help='Check and use cuda if available')
 
     ARGS = parser.parse_args()
 
     main()
     # evaluate()
 
-# python train.py --num_episodes 500 --batch_size 64 --num_hidden 64 --lr 1e-3 --discount_factor 0.8 --replay NaiveReplayMemory --env CartPole-v1 --buffer 10000 --pmethod prop --TAU 0.1
+# python train.py --num_episodes 500 --batch_size 64 --num_hidden 64 --lr 5e-4 --discount_factor 0.8 --replay NaiveReplayMemory --env CartPole-v1 --buffer 10000 --pmethod prop --TAU 0.1
