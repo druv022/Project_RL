@@ -165,7 +165,7 @@ def main():
 
     # environment
     env, (input_size, output_size) = get_env(ARGS.env)
-    env.seed(seed_value)
+    #env.seed(seed_value)
 
     network = { 'CartPole-v1':CartNetwork(input_size, output_size, ARGS.num_hidden).to(device),
                 'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device),
@@ -193,19 +193,30 @@ def main():
     
     # create new file to store durations
     i = 0
-    exists = os.path.isfile("durations0.txt")
+    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt")
     while exists:
         i += 1
-        exists = os.path.isfile("durations%d.txt" % i)
-    fd = open("durations%d.txt" % i,"w+")
+        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i)
+    fd = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i,"w+")
 
     # create new file to store rewards
     i = 0
-    exists = os.path.isfile("rewards0.txt")
+    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards0.txt")
     while exists:
         i += 1
-        exists = os.path.isfile("rewards%d.txt" % i)
-    fr = open("rewards%d.txt" % i,"w+")
+        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i)
+    fr = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i,"w+")
+
+
+    # Save experiment hyperparams
+    i = 0
+    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info0.txt")
+    while exists:
+        i += 1
+        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i)
+    fi = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i,"w+")
+    fi.write(str(ARGS))
+    fi.close()
     #-------------------------------------------------------
 
     for i_episode in tqdm(range(ARGS.num_episodes)):
@@ -257,10 +268,20 @@ def main():
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
+        scores_window.append(r_sum/float(epi_duration))
         # store episode data in files
         fr.write("%d\n" % r_sum)
         fd.write("%d\n" % epi_duration)
 
+        #if i_episode % 100 == 0:
+        #    print("\n", rewards_per_episode)
+        #    print(episode_durations)
+        #    print(scores_window)
+
+        if i_episode > 5000 and np.mean(scores_window) >= 195:
+            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
+            # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
+            break
         '''
         if i_episode % 100 == 0:
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(rewards_per_episode)))
@@ -346,7 +367,7 @@ def evaluate():
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=200, type=int,
+    parser.add_argument('--num_episodes', default=10000, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
                       
