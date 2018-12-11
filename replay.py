@@ -134,12 +134,12 @@ class RankBased:
         self.total = None
         self.cum_sum = None
         self.update_flag = False
-        self.mod = 10
+        self.mod = 8
 
     def add(self, error, data):
         self.data.append(list(data) + [error])
         if self.get_len() % self.mod == 0:
-            self.mod = min(10000, self.mod * 10)
+            self.mod = min(10000, self.mod * 2)
             # print("updated to ", self.mod)
             self.update_flag = True
 
