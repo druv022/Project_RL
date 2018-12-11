@@ -171,13 +171,44 @@ def main():
                 'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device),
                 'LunarLander-v2':LanderNetwork(input_size, output_size, ARGS.num_hidden).to(device)}
 
+    # create new file to store durations
+    i = 0
+    fd_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_durations0.txt"
+    exists = os.path.isfile(fd_name)
+    while exists:
+        i += 1
+        fd_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_durations%d.txt" % i
+        exists = os.path.isfile(fd_name)
+    fd = open(fd_name, "w+")
+
+    # create new file to store rewards
+    i = 0
+    fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards0.txt"
+    exists = os.path.isfile(fr_name)
+    while exists:
+        i += 1
+        fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards%d.txt" % i
+        exists = os.path.isfile(fr_name)
+    fr = open(fr_name, "w+")
+
+    # Save experiment hyperparams
+    i = 0
+    exists = os.path.isfile(str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_info0.txt")
+    while exists:
+        i += 1
+        exists = os.path.isfile(str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_info%d.txt" % i)
+    fi = open(str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_info%d.txt" % i, "w+")
+    file_counter = i
+    fi.write(str(ARGS))
+    fi.close()
+
     #-----------initialization---------------
     if ARGS.replay == 'PrioritizedReplayMemory':
         replay = memory[ARGS.replay](ARGS.buffer, ARGS.pmethod)
-        filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env +'_.pt'
+        filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env  + "_%d.pt" % file_counter# +'_.pt'
     else:
         replay = memory[ARGS.replay](ARGS.buffer)
-        filename = 'weights_'+str(ARGS.replay)+'_'+ ARGS.env +'_.pt'
+        filename = 'weights_'+str(ARGS.replay)+'_'+ ARGS.env  + "_%d.pt" % file_counter#+'_.pt'
 
     model =  network[ARGS.env] # local network
     model_target = network[ARGS.env] # target_network
@@ -190,37 +221,6 @@ def main():
 
     scores = []# list containing scores from each episode
     scores_window = deque(maxlen=100)
-    
-    # create new file to store durations
-    i = 0
-    fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt"
-    exists = os.path.isfile(fd_name)
-    while exists:
-        i += 1
-        fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i
-        exists = os.path.isfile(fd_name)
-    fd = open(fd_name,"w+")
-
-    # create new file to store rewards
-    i = 0
-    fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards0.txt"
-    exists = os.path.isfile(fr_name)
-    while exists:
-        i += 1
-        fr_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i
-        exists = os.path.isfile(fr_name)
-    fr = open(fr_name,"w+")
-
-
-    # Save experiment hyperparams
-    i = 0
-    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info0.txt")
-    while exists:
-        i += 1
-        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i)
-    fi = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i,"w+")
-    fi.write(str(ARGS))
-    fi.close()
     #-------------------------------------------------------
 
     for i_episode in tqdm(range(ARGS.num_episodes)):
@@ -272,7 +272,7 @@ def main():
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
 
-        scores_window.append(r_sum)#/float(epi_duration))
+        scores_window.append(r_sum)
         # store episode data in files
         fr.write("%d\n" % r_sum)
         fr.close()
