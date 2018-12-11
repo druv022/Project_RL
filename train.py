@@ -189,7 +189,7 @@ def main():
         epi_duration = 0
         r_sum = 0
         for t in range(1000):
-            # eps = get_epsilon(global_steps)
+            # eps = get_epsilon(global_steps) # Comment this to to not use linear decay
 
             model.eval()
             a = select_action(model, s, eps)
@@ -235,7 +235,7 @@ def main():
         # if np.mean(scores_window)>=200.0:
         #     print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
             # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
-            break
+            # break
 
         # if epi_duration >= 500: # this value is environment dependent
         #     print("Failed to complete in trial {}".format(i_episode))
@@ -318,21 +318,21 @@ if __name__ == "__main__":
     parser.add_argument('--num_hidden', default=64, type=int,
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=5e-4, type=float)
-    parser.add_argument('--discount_factor', default=0.85, type=float)
+    parser.add_argument('--discount_factor', default=0.8, type=float)
     # parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
     #                    help='type of experience replay')
 
     # parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
     #                     help='type of experience replay')
 
-    parser.add_argument('--replay', default='CombinedReplayMemory', type=str,
-                       help='type of experience replay')
-    parser.add_argument('--env', default='LunarLander-v2', type=str,
+    parser.add_argument('--replay', default='CombinedReplayMemory', choices = ['CombinedReplayMemory',\
+                        'NaiveReplayMemory','PrioritizedReplayMemory'], type=str, help='type of experience replay')
+    parser.add_argument('--env', default='CartPole-v0', type=str,
                         help='environments you want to evaluate')
     parser.add_argument('--buffer', default='10000', type=int,
                         help='buffer size for experience replay')
     parser.add_argument('--beta0', default=0.4, type=float)
-    parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='rank', \
+    parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='prop', \
                 help='proritized reply method: {prop or rank}')
     parser.add_argument('--TAU', default='1e-3', type=float,\
                         help='parameter for soft update of weight')
@@ -348,4 +348,4 @@ if __name__ == "__main__":
     main()
     # evaluate()
 
-
+# python train.py --num_episodes 500 --batch_size 64 --num_hidden 64 --lr 1e-3 --discount_factor 0.8 --replay NaiveReplayMemory --env CartPole-v1 --buffer 10000 --pmethod prop --TAU 0.1
