@@ -54,16 +54,17 @@ def select_action(model, state, epsilon):
     return int(index.item())
 
 def soft_update(local_model, target_model, tau):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
-        Params
-        ======
-            local_model (PyTorch model): weights will be copied from
-            target_model (PyTorch model): weights will be copied to
-            tau (float): interpolation parameter 
-        """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+    """Soft update model parameters.
+    θ_target = τ*θ_local + (1 - τ)*θ_target
+    Params
+    ======
+        local_model (PyTorch model): weights will be copied from
+        target_model (PyTorch model): weights will be copied to
+        tau (float): interpolation parameter 
+    """
+    for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+        target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+
 
 def compute_q_val(model, state, action):
     
@@ -87,7 +88,7 @@ def compute_target(model_target, reward, next_state, done, discount_factor):
     
     return target.detach().unsqueeze(1)
 
-def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU, beta=None):
+def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU, iter, beta=None):
     # DO NOT MODIFY THIS FUNCTION
     
     # don't learn without some decent experience
@@ -122,6 +123,9 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     if ARGS.replay == 'PrioritizedReplayMemory':
         w = (1/(batch_size * np.array(priorities)) ** beta)
         w = torch.tensor(w, dtype=torch.float, requires_grad=False).to(device)
+        
+        if ARGS.norm:
+            w = w / torch.max(w)
 
         loss = torch.mean(w * abs(q_val - target))
         td_error = target - q_val
@@ -138,7 +142,8 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     loss.backward()
     optimizer.step()
 
-    soft_update(model, model_target, TAU)
+    if ARGS.update_freq % iter == 0:
+        soft_update(model, model_target, TAU)
     
     return loss.item()
 
@@ -163,6 +168,36 @@ def main():
                 'MountainCar-v0':MountainNetwork(input_size, output_size, ARGS.num_hidden).to(device),
                 'LunarLander-v2':LanderNetwork(input_size, output_size, ARGS.num_hidden).to(device)}
 
+    # create new file to store durations
+    i = 0
+    fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt"
+    exists = os.path.isfile(fd_name)
+    while exists:
+        i += 1
+        fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i
+        exists = os.path.isfile(fd_name)
+    fd = open(fd_name,"w+")
+    
+    # create new file to store rewards
+    i = 0
+    fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards0.txt"
+    exists = os.path.isfile(fr_name)
+    while exists:
+        i += 1
+        fr_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i
+        exists = os.path.isfile(fr_name)
+    fr = open(fr_name,"w+")
+    
+    # Save experiment hyperparams
+    i = 0
+    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info0.txt")
+    while exists:
+        i += 1
+        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i)
+    fi = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i,"w+")
+    fi.write(str(ARGS))
+    fi.close()
+
     #-----------initialization---------------
     if ARGS.replay == 'PrioritizedReplayMemory':
         replay = memory[ARGS.replay](ARGS.buffer, ARGS.pmethod)
@@ -180,7 +215,6 @@ def main():
     episode_durations = []  #
     rewards_per_episode = []
 
-    scores = []# list containing scores from each episode
     scores_window = deque(maxlen=100) 
     eps = ARGS.EPS
     #-------------------------------------------------------
@@ -217,7 +251,7 @@ def main():
             else:
                 replay.push((s, a, r, s_next, done))
             
-            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, beta=beta)
+            loss = train(model, model_target, replay, optimizer, ARGS.batch_size, ARGS.discount_factor, ARGS.TAU, global_steps, beta=beta)
 
             s = s_next
             epi_duration += 1
@@ -233,12 +267,21 @@ def main():
         eps = max(0.01, ARGS.eps_decay*eps)
         rewards_per_episode.append(r_sum)
         episode_durations.append(epi_duration)
+        scores_window.append(r_sum)
+
+        # store episode data in files
+        fr.write("%d\n" % r_sum)
+        fr.close()
+        fr = open(fr_name, "a")
+
+        fd.write("%d\n" % epi_duration)
+        fd.close()
+        fd = open(fd_name, "a")
 
         if i_episode % 100 == 0:
-            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(rewards_per_episode)))
+            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
         # if np.mean(scores_window)>=200.0:
-        #     print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(rewards_per_episode)))
-            # torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
+        #     print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(scores_window)))
             # break
 
         # if epi_duration >= 500: # this value is environment dependent
@@ -247,6 +290,10 @@ def main():
         # else:
             # print("Completed in {} trials".format(i_episode))
             # break
+
+    # close files
+    fd.close()
+    fr.close()
 
     env.close()
     
@@ -267,7 +314,7 @@ def main():
     return episode_durations
 
 def get_action(state, model):
-    return model(state).exp().multinomial(1)
+    return model(state).multinomial(1)
 
 def evaluate():
     if ARGS.replay == 'PrioritizedReplayMemory':
@@ -339,7 +386,7 @@ if __name__ == "__main__":
     parser.add_argument('--pmethod', type=str, choices=['prop','rank'] ,default='prop', \
                 help='proritized reply method: {prop or rank}')
     parser.add_argument('--TAU', default=1e-3, type=float,\
-                        help='parameter for soft update of weight')
+                        help='parameter for soft update of weight; set it to one for hard update')
     # parser.add_argument('--decay_steps', default='1e5', type=float,\
                         # help='number of steps for linear decay of epsilon; CartPole=1e3,')
     parser.add_argument('--EPS', default='1.0', type=float,
@@ -347,6 +394,9 @@ if __name__ == "__main__":
     parser.add_argument('--eps_decay', default=.995, type=float,
                         help='decay constant')
     parser.add_argument('--use_cuda', action='store_true', help='Check and use cuda if available')
+    parser.add_argument('--update_freq', default=500, help='Update frequence in steps of target network parametes')
+    parser.add_argument('--norm', default='True', type=bool,
+                        help="weight normalization: {True, False}")
 
     ARGS = parser.parse_args()
 
@@ -354,3 +404,4 @@ if __name__ == "__main__":
     # evaluate()
 
 # python train.py --num_episodes 500 --batch_size 64 --num_hidden 64 --lr 5e-4 --discount_factor 0.8 --replay NaiveReplayMemory --env CartPole-v1 --buffer 10000 --pmethod prop --TAU 0.1
+# python train.py --num_episodes 500 --batch_size 64 --num_hidden 64 --lr 5e-4 --discount_factor 0.99 --replay NaiveReplayMemory --env LunarLander-v2 --buffer 100000 --pmethod prop --TAU 0.1 

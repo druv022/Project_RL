@@ -103,8 +103,8 @@ class SumTree:
         self.tree[idx] = p
         self._propagate(idx, change)
 
-    def _get_single(self):
-        rand = random.uniform(0, self._total())
+    def _get_single(self, a, b):
+        rand = random.uniform(a, b)
         idx = self._retrieve(0, rand)
         data_idx = idx - self.capacity + 1
         return idx, self.tree[idx], self.data[data_idx]
@@ -113,8 +113,13 @@ class SumTree:
         batch_idx = []
         batch = []
         priorities = []
+
+        segment = self._total()/n
+
         for i in range(n):
-            (idx, p, data) = self._get_single()
+            a = segment * i
+            b = segment * (i + 1)
+            (idx, p, data) = self._get_single(a, b)
             batch.append(data)
             batch_idx.append(idx)
             priorities.append(p)
@@ -131,9 +136,19 @@ class RankBased:
         self.priorities = None
         self.total = None
         self.cum_sum = None
+        self.update_flag = False
+        self.mod = 8
+        self.samples_seen = 0
+        self.aux = deque(maxlen=max_capacity)
 
     def add(self, error, data):
-        self.data.append(list(data) + [error])
+        self.samples_seen += 1
+        self.aux.append(list(data) + [error])
+        if self.samples_seen % self.mod == 0:
+            self.data.extend(self.aux)
+            self.aux.clear()
+            self.update_flag = True
+            self.mod = min(10000, self.mod * 2)
 
     def update(self, idx, error):
         self.data[idx][-1] = error
@@ -144,12 +159,14 @@ class RankBased:
         return index, self.priorities[index], self.data[index][:-1]  # to exclude the error at the end
 
     def get_batch(self, n):
-        self._update_priorities()
+        if self.update_flag or self.priorities is None:
+            self._update_priorities()
         self.total = numpy.sum(self.priorities)
         self.cum_sum = numpy.cumsum(self.priorities)
         batch_idx = []
         batch = []
         priorities = []
+
         for i in range(n):
             (idx, p, data) = self._get_single()
             batch.append(data)
@@ -167,7 +184,7 @@ class RankBased:
         order = numpy.array([order[order[x]] for x in range(length)])
         order = length - order
         self.priorities = 1. / order
-
+        self.update_flag = False
 
 class PrioritizedReplayMemory:   # stored as ( s, a, r, s_ ) in SumTree
     # modified https://github.com/wotmd5731/dqn/blob/master/memory.py
