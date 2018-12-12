@@ -3,15 +3,29 @@ import argparse
 import matplotlib.pyplot as plt
 import os
 
-def smooth(x, N=10):
+def get_color(counter):
+    if counter > 9:
+        counter = 0
+    else:
+        counter += 1
+    return 'C'+str(counter)
+
+def smooth(x, N=50):
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
-def plot_data(title, data):
-    data_mean = np.mean(data,axis=0)
-    data_std = np.std(data,axis=0)
+def save_file(data_mean, file_name):
+    with open(file_name,'w') as f:
+        for i in range(len(data_mean)):
+            f.write("%d\n" % data_mean[i])
 
-    plt.plot(smooth(data_mean),color='red', label='mean')
+def plot_data(data_mean, data_std,title, color,label=''):
+    data_x = range(len(smooth(data_mean)))
+    data_y_plus = smooth(data_mean+data_std)
+    data_y_minus = smooth(data_mean-data_std)
+
+    plt.plot(smooth(data_mean),color=color, label='mean '+label)
+    plt.fill_between(data_x,data_y_plus,data_y_minus,color=color,alpha=0.2)
     plt.title(title)
     plt.show()
 
@@ -34,18 +48,28 @@ def read_files(file_name):
     return np.asarray(data_all)
 
 def main():
+    counter = 0
+    color = get_color(counter)
     file_name1 = ARGS.file + "_duration"
     episodes_data = read_files(file_name1)
-    plot_data('Episode durations per episode', episodes_data)
+    data_mean = np.mean(episodes_data,axis=0)
+    data_std = np.std(episodes_data,axis=0)
+    plot_data(data_mean, data_std, 'Episode durations per episode', color)
+    save_file(data_mean, ARGS.newFile+'_durations.txt')
 
+    color = get_color(counter)
     file_name2 = ARGS.file + "_rewards"
     rewards_data = read_files(file_name2)
-    plot_data('Rewards per episode', rewards_data)
+    data_mean = np.mean(rewards_data,axis=0)
+    data_std = np.std(rewards_data,axis=0)
+    plot_data(data_mean, data_std, 'Rewards per episode', color)
+    save_file(data_mean, ARGS.file_name+'_rewards.txt')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--file', default='NaiveReplayMemory_prop_durations', type=str,
                         help='name of file to read until numeric value')
+    parser.add_argument('--newFile', default='NaiveReplayAll',type=str, help='Name of the file')
     ARGS = parser.parse_args()
     main()
