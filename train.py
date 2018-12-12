@@ -386,7 +386,7 @@ def evaluate():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=10000, type=int,
+    parser.add_argument('--num_episodes', default=500, type=int,
                         help='max number of episodes')
     parser.add_argument('--batch_size', default=64, type=int)
 
