@@ -244,7 +244,7 @@ def main():
                 done_ = torch.tensor(done, dtype=torch.uint8).to(device).unsqueeze(0)
                 with torch.no_grad():
                     q_val = compute_q_val(model, state, action)
-                    target = compute_target(model, reward, next_state, done_, ARGS.discount_factor)
+                    target = compute_target(model_target, reward, next_state, done_, ARGS.discount_factor)
                 td_error = F.smooth_l1_loss(q_val, target)
                 replay.push(td_error,(s, a, r, s_next, done))
                 beta = get_beta(i_episode, ARGS.num_episodes, ARGS.beta0)
