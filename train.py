@@ -244,7 +244,7 @@ def main():
                 done_ = torch.tensor(done, dtype=torch.uint8).to(device).unsqueeze(0)
                 with torch.no_grad():
                     q_val = compute_q_val(model, state, action)
-                    target = compute_target(model, reward, next_state, done_, ARGS.discount_factor)
+                    target = compute_target(model_target, reward, next_state, done_, ARGS.discount_factor)
                 td_error = F.smooth_l1_loss(q_val, target)
                 replay.push(td_error,(s, a, r, s_next, done))
                 beta = get_beta(i_episode, ARGS.num_episodes, ARGS.beta0)
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     parser.add_argument('--eps_decay', default=.995, type=float,
                         help='decay constant')
     parser.add_argument('--use_cuda', action='store_true', help='Check and use cuda if available')
-    parser.add_argument('--update_freq', default=500, help='Update frequence in steps of target network parametes')
+    parser.add_argument('--update_freq', default=1, help='Update frequence in steps of target network parametes')
     parser.add_argument('--norm', default='True', type=bool,
                         help="weight normalization: {True, False}")
 
