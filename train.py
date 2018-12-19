@@ -19,15 +19,8 @@ np.random.seed(seed_value)
 #----------------------------
 
 #----device-----------
-device = None
-def set_device():
-    if ARGS.use_cuda:
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    else:
-        device = torch.device("cpu")
-    print(device)
-#-------------------
-
+device = device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 def tqdm(*args, **kwargs):
     return _tqdm(*args, **kwargs, mininterval=1)    
 
@@ -152,8 +145,6 @@ def smooth(x, N=10):
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 def main():
-    # setting device to run on
-    set_device()
 
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory,
@@ -405,7 +396,6 @@ if __name__ == "__main__":
                         help='epsilon')
     parser.add_argument('--eps_decay', default=.995, type=float,
                         help='decay constant')
-    parser.add_argument('--use_cuda', action='store_true', help='Check and use cuda if available')
     parser.add_argument('--update_freq', default=1, help='Update frequence in steps of target network parametes')
     parser.add_argument('--norm', default='True', type=bool,
                         help="weight normalization: {True, False}")
