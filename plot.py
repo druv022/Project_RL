@@ -8,9 +8,9 @@ def get_color(counter):
         counter = 0
     else:
         counter += 1
-    return 'C'+str(counter)
+    return 'C'+str(counter), counter
 
-def smooth(x, N=50):
+def smooth(x, N=30):
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
@@ -19,17 +19,96 @@ def save_file(data_mean, file_name):
         for i in range(len(data_mean)):
             f.write("%d\n" % data_mean[i])
 
-def plot_data(data_mean, data_std,title, color,label=''):
+def plot_data(data_mean, data_std,title, color,label='',y_label=''):
     data_x = range(len(smooth(data_mean)))
     data_y_plus = smooth(data_mean+data_std)
     data_y_minus = smooth(data_mean-data_std)
 
-    plt.plot(smooth(data_mean),color=color, label='mean '+label)
+    plt.plot(smooth(data_mean),color=color, label=label)
     plt.fill_between(data_x,data_y_plus,data_y_minus,color=color,alpha=0.2)
+    plt.xlabel('Episodes')
+    plt.ylabel(y_label)
     plt.title(title)
-    plt.show()
+    plt.grid()
+    plt.legend()
 
-def read_files(file_name):
+def read_files():
+    j = 0
+    fd_name = ARGS.file+"0.txt"
+    exists = os.path.isfile(fd_name)
+    data_all = []#np.array([])
+    while exists:
+        f = open(fd_name,"r")
+        data_tmp = f.readlines()[:-1]
+        data     = []
+        for i in range(len(data_tmp)):
+            data.append(int(data_tmp[i]))
+        j += 1
+        fd_name = ARGS.file+"%d.txt" % j
+        exists = os.path.isfile(fd_name)
+        # if not data_all.size:
+        #     data_all = np.asarray(data)
+        # else:
+        #     data_all = np.vstack((data_all,np.asarray(data)))
+        data_all.append(np.asarray(data))
+    
+    return np.asarray(data_all)
+
+def read_file(file_name):
+    f = open(file_name,"r")
+    data_tmp = f.readlines()[:-1]
+    data     = []
+    for i in range(len(data_tmp)):
+        data.append(int(data_tmp[i]))
+    
+    return np.asarray(data)
+
+def plot_comb_experiments():
+    counter = 0
+    if not ARGS.common:
+        # file_name1 = ARGS.file + "_duration"
+        episodes_data = read_files()
+        data_mean1 = np.mean(episodes_data,axis=0)
+        data_std1 = np.std(episodes_data,axis=0)
+        
+        save_file(data_mean1, 'mean_'+ARGS.newFile+'_durations.txt')
+        save_file(data_std1, 'std_'+ ARGS.newFile+'_durations.txt')
+
+        # file_name2 = ARGS.file + "_rewards"
+        rewards_data = read_files()
+        data_mean2 = np.mean(rewards_data,axis=0)
+        data_std2 = np.std(rewards_data,axis=0)
+        save_file(data_mean2, 'mean_'+ARGS.newFile+'_rewards.txt')
+        save_file(data_std2, 'std_'+ARGS.newFile+'_rewards.txt')
+    else:
+        
+        files = [f for f in os.listdir('.') if os.path.isfile(f)]
+        for f in files:
+            if 'durations' in f:
+                if 'mean' in f:
+                    data_mean1 = read_file(f)
+                    std_file = f.replace('mean','std')
+                    std1 = read_file(std_file)
+                    color, counter = get_color(counter)
+                    label = f.replace('mean_','').replace('_durations.txt','')
+                    plot_data(data_mean1, std1, 'Episode durations per episode', color, label=label, y_label='Episodes duration')
+        
+        plt.show()
+        plt.close()
+        # TODO: Currently two legends appear in the second graph. Need to verify if introducing plt.close() solves this.
+        counter = 0
+        for f in files:
+            if 'rewards' in f:
+                if 'mean' in f:
+                    data_mean2 = read_file(f)
+                    std_file = f.replace('mean','std')
+                    std2 = read_file(std_file)
+                    color, counter = get_color(counter)
+                    label = f.replace('mean_','').replace('_rewards.txt','')
+                    plot_data(data_mean2, std2, 'Rewards per episode', color, label=label, y_label='Rewards')
+        plt.show()
+
+def plot_buffer(buffer_sizes):
     j = 0
     fd_name = ARGS.file+"0.txt"
     exists = os.path.isfile(fd_name)
@@ -40,36 +119,33 @@ def read_files(file_name):
         data     = []
         for i in range(len(data_tmp)):
             data.append(int(data_tmp[i]))
+        plt.plot(smooth(data), label = buffer_sizes[j])
         j += 1
         fd_name = ARGS.file+"%d.txt" % j
         exists = os.path.isfile(fd_name)
         data_all.append(np.asarray(data))
-    
-    return np.asarray(data_all)
+
+    plt.xlabel('Episodes')
+    plt.ylabel('Rewards')
+    plt.title(ARGS.newFile)
+    plt.grid()
+    plt.legend()
+    plt.show()
+
 
 def main():
-    counter = 0
-    color = get_color(counter)
-    file_name1 = ARGS.file + "_duration"
-    episodes_data = read_files(file_name1)
-    data_mean = np.mean(episodes_data,axis=0)
-    data_std = np.std(episodes_data,axis=0)
-    plot_data(data_mean, data_std, 'Episode durations per episode', color)
-    save_file(data_mean, ARGS.newFile+'_durations.txt')
+    plot_comb_experiments()
 
-    color = get_color(counter)
-    file_name2 = ARGS.file + "_rewards"
-    rewards_data = read_files(file_name2)
-    data_mean = np.mean(rewards_data,axis=0)
-    data_std = np.std(rewards_data,axis=0)
-    plot_data(data_mean, data_std, 'Rewards per episode', color)
-    save_file(data_mean, ARGS.file_name+'_rewards.txt')
+    # buffer_sizes = [100,1000,10000,100000]
+    # plot_buffer(buffer_sizes)
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--file', default='NaiveReplayMemory_prop_durations', type=str,
-                        help='name of file to read until numeric value')
-    parser.add_argument('--newFile', default='NaiveReplayAll',type=str, help='Name of the file')
+    parser.add_argument('--file', default='CombinedReplayMemory_prop_rewards', type=str,
+                        help='name of file to read until numeric value') # 'NaiveReplayMemory_prop_durations', 
+    parser.add_argument('--newFile', default='CombinedReplay',type=str, help='Name of the file')
+    parser.add_argument('--common', action='store_false', help='generate common plot')
     ARGS = parser.parse_args()
     main()

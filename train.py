@@ -96,7 +96,7 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
         return None
 
     # transition batch is taken from experience replay memory
-    if ARGS.replay == 'PrioritizedReplayMemory':
+    if ARGS.replay == 'PER':
         transitions, batch_idx, priorities = memory.sample(batch_size)
     else:
         transitions = memory.sample(batch_size)
@@ -120,7 +120,7 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     with torch.no_grad():  # Don't compute gradient info for the target (semi-gradient)
         target = compute_target(model_target, reward, next_state, done, discount_factor)
 
-    if ARGS.replay == 'PrioritizedReplayMemory':
+    if ARGS.replay == 'PER':
         w = (1/(batch_size * np.array(priorities)) ** beta)
         w = torch.tensor(w, dtype=torch.float, requires_grad=False).to(device)
         
@@ -158,7 +158,7 @@ def main():
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory,
              'CombinedReplayMemory' :CombinedReplayMemory,
-             'PrioritizedReplayMemory':PrioritizedReplayMemory}
+             'PER':PrioritizedReplayMemory}
 
     # environment
     env, (input_size, output_size) = get_env(ARGS.env)
@@ -170,41 +170,42 @@ def main():
 
     # create new file to store durations
     i = 0
-    fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations0.txt"
+    fd_name = "results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) +'_' + ARGS.env + "_durations0.txt"
     exists = os.path.isfile(fd_name)
     while exists:
         i += 1
-        fd_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_durations%d.txt" % i
+        fd_name = "results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) +'_' + ARGS.env + "_durations%d.txt" % i
         exists = os.path.isfile(fd_name)
-    fd = open(fd_name,"w+")
-    
+    fd = open(fd_name, "w+")
+
     # create new file to store rewards
     i = 0
-    fr_name = str(ARGS.replay) + "_" + str(ARGS.pmethod) + "_rewards0.txt"
+    fr_name = "results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) +'_' + ARGS.env + "_rewards0.txt"
     exists = os.path.isfile(fr_name)
     while exists:
         i += 1
-        fr_name = str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_rewards%d.txt" % i
+        fr_name = "results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) + '_' + ARGS.env +  "_rewards%d.txt" % i
         exists = os.path.isfile(fr_name)
-    fr = open(fr_name,"w+")
-    
+    fr = open(fr_name, "w+")
+
     # Save experiment hyperparams
     i = 0
-    exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info0.txt")
+    exists = os.path.isfile("results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) + '_' + ARGS.env + "_info0.txt")
     while exists:
         i += 1
-        exists = os.path.isfile(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i)
-    fi = open(str(ARGS.replay)+"_"+ str(ARGS.pmethod)+"_info%d.txt" % i,"w+")
+        exists = os.path.isfile("results/" +str(ARGS.buffer) + "_" + str(ARGS.replay) + "_" + str(ARGS.pmethod) + '_' + ARGS.env + "_info%d.txt" % i)
+    fi = open("results/" + str(ARGS.buffer) + "_" +  str(ARGS.replay) + "_" + str(ARGS.pmethod) + '_' + ARGS.env + "_info%d.txt" % i, "w+")
+    file_counter = i
     fi.write(str(ARGS))
     fi.close()
 
     #-----------initialization---------------
-    if ARGS.replay == 'PrioritizedReplayMemory':
+    if ARGS.replay == 'PER':
         replay = memory[ARGS.replay](ARGS.buffer, ARGS.pmethod)
-        filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env +'_.pt'
+        filename = "results/" + str(ARGS.buffer) + "_" + 'weights_'+ str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env  + "_%d.pt" % file_counter# +'_.pt'
     else:
         replay = memory[ARGS.replay](ARGS.buffer)
-        filename = 'weights_'+str(ARGS.replay)+'_'+ ARGS.env +'_.pt'
+        filename = "results/" + str(ARGS.buffer) + "_" + 'weights_' + str(ARGS.replay)+'_'+ ARGS.env  + "_%d.pt" % file_counter#+'_.pt'
 
     model =  network[ARGS.env] # local network
     model_target = network[ARGS.env] # target_network
@@ -236,7 +237,7 @@ def main():
             s_next, r, done, _ = env.step(a)
 
             beta = None
-            if ARGS.replay == 'PrioritizedReplayMemory':
+            if ARGS.replay == 'PER':
                 state = torch.tensor(s, dtype=torch.float).to(device).unsqueeze(0)
                 action = torch.tensor(a, dtype=torch.int64).to(device).unsqueeze(0)  # Need 64 bit to use them as index
                 next_state = torch.tensor(s_next, dtype=torch.float).to(device).unsqueeze(0)
@@ -306,18 +307,20 @@ def main():
 
     plt.plot(smooth(episode_durations,10))
     plt.title('Episode durations per episode')
-    plt.show()
+    #plt.show()
+    plt.savefig("images/" + str(ARGS.buffer) + "_" + str(ARGS.replay) +'_'+ARGS.pmethod+ '_' + ARGS.env + '_Episode'+ "%d.png" % file_counter)
 
     plt.plot(smooth(rewards_per_episode,10))
     plt.title("Rewards per episode")
-    plt.show()
+    #plt.show()
+    plt.savefig("images/"+ str(ARGS.buffer) + "_" + str(ARGS.replay) +'_'+ARGS.pmethod+ '_' + ARGS.env + '_Rewards' + "%d.png" % file_counter)
     return episode_durations
 
 def get_action(state, model):
     return model(state).multinomial(1)
 
 def evaluate():
-    if ARGS.replay == 'PrioritizedReplayMemory':
+    if ARGS.replay == 'PER':
         filename = 'weights_'+str(ARGS.replay)+'_'+ARGS.pmethod+'_'+ ARGS.env +'_.pt'
     else:
         filename = 'weights_'+str(ARGS.replay)+'_'+ ARGS.env +'_.pt'
@@ -358,9 +361,18 @@ def evaluate():
     plt.plot(episode_durations)
     plt.title('Episode durations')
     plt.show()
+    #plt.savefig('foo.png')
 
 if __name__ == "__main__":
-    
+
+    path = "images"
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    path2 = "results"
+    if not os.path.exists(path2):
+        os.mkdir(path2)
+        
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_episodes', default=400, type=int,
                         help='max number of episodes')
@@ -370,11 +382,11 @@ if __name__ == "__main__":
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=5e-4, type=float)
     parser.add_argument('--discount_factor', default=0.8, type=float)
-    parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
-                       help='type of experience replay')
+    #parser.add_argument('--replay', default='NaiveReplayMemory',type=str,
+    #                   help='type of experience replay')
 
-    # parser.add_argument('--replay', default='PrioritizedReplayMemory',type=str,
-    #                     help='type of experience replay')
+    parser.add_argument('--replay', default='PER',type=str,
+                         help='type of experience replay')
 
     # parser.add_argument('--replay', default='CombinedReplayMemory', choices = ['CombinedReplayMemory',\
     #                     'NaiveReplayMemory','PrioritizedReplayMemory'], type=str, help='type of experience replay')
@@ -399,7 +411,7 @@ if __name__ == "__main__":
                         help="weight normalization: {True, False}")
 
     ARGS = parser.parse_args()
-
+    print(ARGS)
     main()
     # evaluate()
 
