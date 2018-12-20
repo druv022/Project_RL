@@ -22,8 +22,7 @@ np.random.seed(seed_value)
 device = device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 def tqdm(*args, **kwargs):
-    return _tqdm(*args, **kwargs, mininterval=1)
-
+    return _tqdm(*args, **kwargs, mininterval=1)    
 
 #using exponential decay rather than linear decay
 # def get_epsilon(it):
@@ -61,6 +60,7 @@ def soft_update(local_model, target_model, tau):
 
 
 def compute_q_val(model, state, action):
+    
     # YOUR CODE HERE
     actions = model(state)
     return actions.gather(1, action.unsqueeze(1))
@@ -83,7 +83,7 @@ def compute_target(model_target, reward, next_state, done, discount_factor):
 
 def train(model, model_target, memory, optimizer, batch_size, discount_factor, TAU, iter, beta=None):
     # DO NOT MODIFY THIS FUNCTION
-
+    
     # don't learn without some decent experience
     if len(memory) < batch_size:
         return None
@@ -99,17 +99,17 @@ def train(model, model_target, memory, optimizer, batch_size, discount_factor, T
     #print(batch_idx)
     # transition is a list of 5-tuples, instead we want 5 vectors (as torch.Tensor's)
     state, action, reward, next_state, done = zip(*transitions)
-
+    
     # convert to PyTorch and define types
     state = torch.tensor(state, dtype=torch.float).to(device)
     action = torch.tensor(action, dtype=torch.int64).to(device)  # Need 64 bit to use them as index
     next_state = torch.tensor(next_state, dtype=torch.float).to(device)
     reward = torch.tensor(reward, dtype=torch.float).to(device)
     done = torch.tensor(done, dtype=torch.uint8).to(device)  # Boolean
-
+    
     # compute the q value
     q_val = compute_q_val(model, state, action)
-
+    
     with torch.no_grad():  # Don't compute gradient info for the target (semi-gradient)
         target = compute_target(model_target, reward, next_state, done, discount_factor)
 
@@ -144,10 +144,7 @@ def smooth(x, N=10):
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
-def smooth(x, N=10):
-    cumsum = np.cumsum(np.insert(x, 0, 0))
-    return (cumsum[N:] - cumsum[:-N]) / float(N)
-
+def main():
 
     #update this disctionary as per the implementation of methods
     memory= {'NaiveReplayMemory':NaiveReplayMemory,
@@ -376,8 +373,8 @@ if __name__ == "__main__":
                         help='dimensionality of hidden space')
     parser.add_argument('--lr', default=5e-4, type=float)
     parser.add_argument('--discount_factor', default=0.8, type=float)
-    parser.add_argument('--replay', default='PER',choices = ['CombinedReplayMemory',\
-                         'NaiveReplayMemory','PER'],type=str,
+    parser.add_argument('--replay', default='PER',type=str,choices = ['CombinedReplayMemory',\
+                        'NaiveReplayMemory','PER'],
                          help='type of experience replay')
     parser.add_argument('--env', default='CartPole-v1', type=str,
                         help='environments you want to evaluate')
@@ -392,7 +389,7 @@ if __name__ == "__main__":
                         help='epsilon')
     parser.add_argument('--eps_decay', default=.995, type=float,
                         help='decay constant')
-    parser.add_argument('--update_freq', default=500, type=int,help='Update frequence in steps of target network parametes')
+    parser.add_argument('--update_freq', default=500, help='Update frequence in steps of target network parametes')
     parser.add_argument('--norm', default='True', type=bool,
                         help="weight normalization: {True, False}")
 
