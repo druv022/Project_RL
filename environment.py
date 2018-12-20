@@ -36,19 +36,22 @@ def get_env(name):
 		space = (4, 2)
 
 		return env, space
-	else:
+	elif name == "MountainCar-v0":
+		env = gym.envs.make(name)
+		space = (2, 3)
 
+		return env, space
+	elif name == 'LunarLander-v2':
+		env = gym.envs.make(name)
+		space = (8,4)
+		return env, space
+	else:
 		env = gym.envs.make(name)
 		space = (2, 3)
 
 		return env, space
 
-
-
-
-	env = gym.envs.make(name)
-	state_space = env.observation_space
-	return env, np.size(state_space.high) 
+	return 0 
 
 if __name__=="__main__":
 	env, _ = get_env("Acrobot-v1")
