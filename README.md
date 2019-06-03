@@ -9,5 +9,14 @@ This work is in collaboration with [Masoumeh Bakhtiariziabari](https://github.co
 
 There are different types of experience replay, e.g.  prioritised experiencereplay  and  hindsight  experience  replay.   Compare  two  or  more  types  ofexperience replay.  Does the ‘winner’ depend on the type of environment?
 
+## Experience Replays
+We mainly experimented with three experience replays techniques:
+```
+** Naive Experience Replay **
+** Prioritized Experience Replay **
+** Combined Experience Replay **
+
+```
+
 [Code](code/) and [Poster presentation](Poster.pdf) can be found here.
 
