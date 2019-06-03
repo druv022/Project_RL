@@ -9,4 +9,5 @@ This work is in collaboration with [Masoumeh Bakhtiariziabari](https://github.co
 
 There are different types of experience replay, e.g.  prioritised experiencereplay  and  hindsight  experience  replay.   Compare  two  or  more  types  ofexperience replay.  Does the ‘winner’ depend on the type of environment?
 
+[Code](code/) and [Poster presentation](Poster.pdf) can be found here.
 
