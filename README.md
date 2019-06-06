@@ -17,5 +17,6 @@ We mainly experimented with three experience replays techniques which are:
 - Combined Experience Replay
 ```
 
-[Code](code/) and [Poster presentation](Poster.pdf) can be found here.
+* [Code](code/)
+* [Poster presentation](Poster.pdf)
 
