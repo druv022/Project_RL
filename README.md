@@ -7,7 +7,7 @@ This work was is in collaboration with [Masoumeh Bakhtiariziabari](https://githu
 
 ## Problem Statement
 
-There are different types of experience replay, e.g.  prioritised experiencereplay  and  hindsight  experience  replay.   Compare  two  or  more  types  ofexperience replay.  Does the ‘winner’ depend on the type of environment?
+There are different types of experience replay, e.g.  prioritised experiencereplay  and  hindsight  experience  replay.   Compare  two  or  more  types  of experience replay.  Does the ‘winner’ depend on the type of environment?
 
 ## Experience Replays
 We mainly experimented with three experience replays techniques which are:
